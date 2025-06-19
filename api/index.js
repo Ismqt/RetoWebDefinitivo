@@ -4,6 +4,9 @@ require('dotenv').config();
 // Import required modules
 const express = require('express');
 const cors = require('cors');
+const sql = require('mssql');
+require('dotenv').config();
+const { verifyToken, checkRole } = require('./middleware/authMiddleware');
 const { poolPromise } = require('./config/db'); // Import poolConnect
 
 // Import routes
@@ -19,6 +22,9 @@ const vaccineLotRoutes = require('./routes/vaccine-lots');
 const availabilityRoutes = require('./routes/availability');
 const vaccinationRoutes = require('./routes/vaccinations');
 const otherRoutes = require('./routes/other');
+const vaccineCatalogRoutes = require('./routes/vaccineCatalogRoutes'); // Corrected import path
+const manufacturerRoutes = require('./routes/manufacturerRoutes'); // Added this line
+const medicalRoutes = require('./routes/medical'); // Medical routes for healthcare personnel
 
 // Initialize Express app
 const app = express();
@@ -51,17 +57,20 @@ app.use((req, res, next) => {
 
 // --- API ROUTES ---
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/vaccination-centers', centerRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/roles', rolesRoutes);
-app.use('/api/ninos', ninoRoutes);
-app.use('/api/locations', locationRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/vaccine-lots', vaccineLotRoutes);
-app.use('/api/availability', availabilityRoutes);
-app.use('/api/vaccinations', vaccinationRoutes);
-app.use('/api', otherRoutes); // For /vaccines, /tutors, etc.
+app.use('/api/users', verifyToken, userRoutes);
+app.use('/api/vaccination-centers', verifyToken, centerRoutes);
+app.use('/api/appointments', verifyToken, appointmentRoutes);
+app.use('/api/roles', verifyToken, rolesRoutes);
+app.use('/api/ninos', verifyToken, ninoRoutes);
+app.use('/api/locations', verifyToken, locationRoutes);
+app.use('/api/dashboard', verifyToken, dashboardRoutes);
+app.use('/api/vaccine-lots', verifyToken, vaccineLotRoutes);
+app.use('/api/availability', verifyToken, availabilityRoutes);
+app.use('/api/vaccinations', verifyToken, vaccinationRoutes);
+app.use('/api/vaccine-catalog', verifyToken, vaccineCatalogRoutes); // Added this line
+app.use('/api/manufacturers', verifyToken, manufacturerRoutes); // Added this line
+app.use('/api/medical', verifyToken, medicalRoutes); // Medical appointments and patient history
+app.use('/api', otherRoutes); // For /vaccines, /tutors, etc. Individual routes within otherRoutes handle their own protection.
 
 // Basic route
 app.get('/', (req, res) => {
@@ -80,8 +89,8 @@ app.use((err, req, res, next) => {
 // --- Server Initialization ---
 const startServer = async () => {
     try {
-        await poolPromise; // Ensure the database connection is established
-        
+        // Use the poolPromise from db.js
+        await poolPromise;
         app.listen(port, () => {
             console.log(`[SERVER READY] Vaccination API server listening at http://localhost:${port}`);
         });

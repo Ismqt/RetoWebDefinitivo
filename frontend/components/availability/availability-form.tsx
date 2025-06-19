@@ -23,7 +23,7 @@ const formSchema = z.object({
 
 interface VaccinationCenter {
     id_CentroVacunacion: number;
-    NombreCentro: string;
+    Nombre: string;
 }
 
 export const AvailabilityForm = ({ onFormSubmit }: { onFormSubmit: () => void }) => {
@@ -46,7 +46,7 @@ export const AvailabilityForm = ({ onFormSubmit }: { onFormSubmit: () => void })
   useEffect(() => {
     const loadCenters = async () => {
         try {
-            const data = await fetchCenters('/api/centers');
+            const data = await fetchCenters('/api/vaccination-centers');
             setCenters(data || []);
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error al cargar centros de vacunación' });
@@ -59,7 +59,7 @@ export const AvailabilityForm = ({ onFormSubmit }: { onFormSubmit: () => void })
     try {
       await submitForm("/api/availability", {
         method: "POST",
-        body: JSON.stringify(values),
+        body: values,
       });
       toast({ title: "Disponibilidad creada", description: "El nuevo horario ha sido guardado exitosamente." });
       form.reset();
@@ -83,7 +83,7 @@ export const AvailabilityForm = ({ onFormSubmit }: { onFormSubmit: () => void })
                   <SelectTrigger><SelectValue placeholder="Seleccione un centro" /></SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {centers.map(c => <SelectItem key={c.id_CentroVacunacion} value={String(c.id_CentroVacunacion)}>{c.NombreCentro}</SelectItem>)}
+                  {centers.map(c => <SelectItem key={c.id_CentroVacunacion} value={String(c.id_CentroVacunacion)}>{c.Nombre}</SelectItem>)}
                 </SelectContent>
               </Select>
               <FormMessage />

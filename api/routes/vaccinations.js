@@ -4,7 +4,7 @@ const { sql, poolPromise } = require('../config/db');
 const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 
 // POST / - Record a new vaccination
-router.post('/', [verifyToken, checkRole(['Medico', 'Enfermera'])], async (req, res) => {
+router.post('/', [verifyToken, checkRole([2, 3])], async (req, res) => {
     try {
         const { id_Cita, id_LoteVacuna, FechaAplicacion, EdadAlVacunar, id_PersonalSalud, Observaciones } = req.body;
         const pool = await poolPromise;

@@ -1,0 +1,63 @@
+-- Procedimiento Almacenado para obtener lotes por Centro de Vacunación
+-- Este SP fue verificado y es fundamental para la correcta visualización del inventario.
+-- No se realizaron cambios en este SP durante la última sesión, pero su correcto funcionamiento fue clave.
+
+IF OBJECT_ID('dbo.usp_GetVaccineLotsByCenter', 'P') IS NOT NULL
+BEGIN
+    DROP PROCEDURE dbo.usp_GetVaccineLotsByCenter;
+END
+GO
+
+CREATE PROCEDURE dbo.usp_GetVaccineLotsByCenter
+    @id_CentroVacunacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validación de parámetro de entrada
+    IF @id_CentroVacunacion IS NULL
+    BEGIN
+        RAISERROR('Error: @id_CentroVacunacion no puede ser NULL.', 16, 1);
+        RETURN;
+    END
+
+    -- Verificar si el centro de vacunación existe
+    IF NOT EXISTS (SELECT 1 FROM dbo.CentroVacunacion WHERE id_CentroVacunacion = @id_CentroVacunacion)
+    BEGIN
+        RAISERROR('Error: El id_CentroVacunacion especificado no existe.', 16, 1);
+        RETURN;
+    END
+
+    -- Consulta principal para obtener los lotes
+    SELECT
+        l.id_LoteVacuna,
+        l.NumeroLote,
+        v.Nombre AS NombreVacuna,
+        f.Fabricante AS NombreFabricante,
+        l.FechaCaducidad,
+        l.FechaRecepcion,
+        l.CantidadInicial,
+        l.CantidadDisponible,
+        CASE
+            WHEN l.FechaCaducidad < GETDATE() OR l.CantidadDisponible <= 0 THEN 0
+            ELSE 1
+        END AS Activo
+    FROM
+        dbo.Lote l
+    INNER JOIN
+        dbo.Vacuna v ON l.id_Vacuna = v.id_Vacuna
+    INNER JOIN
+        dbo.Fabricante f ON v.id_Fabricante = f.id_Fabricante
+    WHERE
+        l.id_CentroVacunacion = @id_CentroVacunacion
+    ORDER BY
+        l.FechaCaducidad ASC;
+END;
+GO
+
+PRINT 'Stored Procedure usp_GetVaccineLotsByCenter ha sido creado/actualizado.'
+GO
+
+-- NOTA: El SP para AÑADIR disponibilidad no fue modificado. 
+-- El error de disponibilidad se encontraba únicamente en el código del frontend 
+-- y no requirió cambios en la base de datos.

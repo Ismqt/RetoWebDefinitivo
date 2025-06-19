@@ -96,7 +96,7 @@ export const RecordVaccinationModal = ({ open, onOpenChange, appointment, onForm
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Registrar Vacunación</DialogTitle>
-          <DialogDescription>Paciente: {appointment?.NombreNino}</DialogDescription>
+          <DialogDescription>Paciente: {appointment?.NombrePaciente}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

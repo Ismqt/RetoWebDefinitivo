@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 const verifyToken = (req, res, next) => {
+    console.log(`[AUTH MIDDLEWARE] verifyToken called for: ${req.method} ${req.originalUrl}`); // <-- ADD THIS LOG
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -18,19 +19,25 @@ const verifyToken = (req, res, next) => {
     }
 };
 
-const checkRole = (roles) => {
+const checkRole = (requiredRoleIds) => {
     return (req, res, next) => {
-        if (!req.user || !req.user.role) {
-            return res.status(403).send({ message: 'Forbidden: Role information is missing.' });
+        if (!req.user || typeof req.user.id_Rol === 'undefined') {
+            return res.status(403).send({ message: 'Forbidden: Role information is missing from token.' });
         }
 
-        const userRole = req.user.role.trim().toLowerCase();
-        const requiredRoles = roles.map(role => role.trim().toLowerCase());
+        const userRoleId = req.user.id_Rol;
 
-        if (requiredRoles.includes(userRole)) {
-            next(); // User has the required role, proceed
+        if (!Array.isArray(requiredRoleIds) || requiredRoleIds.some(isNaN)) {
+             console.error('Authorization Error: checkRole requires an array of numeric role IDs.');
+             return res.status(500).send({ message: 'Server configuration error in role-checking.' });
+        }
+
+        if (requiredRoleIds.includes(userRoleId)) {
+            next();
         } else {
-            res.status(403).send({ message: `Forbidden: Your role (${req.user.role}) is not authorized to access this resource.` });
+            res.status(403).send({ 
+                message: `Forbidden: You do not have the required permissions to access this resource. Required role IDs: ${requiredRoleIds.join(', ')}`
+            });
         }
     };
 };

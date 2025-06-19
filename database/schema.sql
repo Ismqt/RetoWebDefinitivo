@@ -67,8 +67,10 @@ CREATE TABLE Usuario (
     Cedula_Usuario NVARCHAR(15) UNIQUE,
     Email NVARCHAR(100) UNIQUE,
     Clave NVARCHAR(255) NOT NULL, -- Store hashed passwords
+    id_CentroVacunacion INT NULL,
     CONSTRAINT FK_Usuario_Rol FOREIGN KEY (id_Rol) REFERENCES Rol(id_Rol),
-    CONSTRAINT FK_Usuario_EstadoUsuario FOREIGN KEY (id_Estado) REFERENCES EstadoUsuario(id_Estado)
+    CONSTRAINT FK_Usuario_EstadoUsuario FOREIGN KEY (id_Estado) REFERENCES EstadoUsuario(id_Estado),
+    CONSTRAINT FK_Usuario_CentroVacunacion FOREIGN KEY (id_CentroVacunacion) REFERENCES CentroVacunacion(id_CentroVacunacion) ON DELETE SET NULL
 );
 GO
 
@@ -149,13 +151,15 @@ GO
 CREATE TABLE Lote (
     id_LoteVacuna INT IDENTITY(1,1) PRIMARY KEY,
     id_VacunaCatalogo INT NOT NULL,
+    id_CentroVacunacion INT NOT NULL, -- Added
     NumeroLote NVARCHAR(50) NOT NULL,
     FechaCaducidad DATE NOT NULL,
     CantidadInicial INT NOT NULL CHECK (CantidadInicial >= 0),
-    CantidadDisponible INT NOT NULL CHECK (CantidadDisponible >= 0), -- Removed cross-column check here
-    CONSTRAINT UQ_Lote_VacunaCatalogo_NumeroLote UNIQUE (id_VacunaCatalogo, NumeroLote),
+    CantidadDisponible INT NOT NULL CHECK (CantidadDisponible >= 0),
+    CONSTRAINT UQ_Lote_Centro_Vacuna_NumeroLote UNIQUE (id_CentroVacunacion, id_VacunaCatalogo, NumeroLote), -- Updated unique constraint
     CONSTRAINT FK_Lote_Vacuna FOREIGN KEY (id_VacunaCatalogo) REFERENCES Vacuna(id_Vacuna),
-    CONSTRAINT CK_Lote_CantidadDisponible CHECK (CantidadDisponible <= CantidadInicial) -- Added as a table-level constraint
+    CONSTRAINT FK_Lote_CentroVacunacion FOREIGN KEY (id_CentroVacunacion) REFERENCES CentroVacunacion(id_CentroVacunacion), -- Added FK
+    CONSTRAINT CK_Lote_CantidadDisponible CHECK (CantidadDisponible <= CantidadInicial)
 );
 GO
 
@@ -206,7 +210,7 @@ GO
 
 -- Table: HistoricoCita (Appointment History Log)
 CREATE TABLE HistoricoCita (
-    id_HistoricoCita INT IDENTITY(1,1) PRIMARY KEY,
+    id_Historico INT NOT NULL,
     id_Cita INT NOT NULL,
     Vacuna NVARCHAR(100),
     NombreCompletoPersonal NVARCHAR(100),
@@ -214,7 +218,35 @@ CREATE TABLE HistoricoCita (
     Fecha DATE,
     Hora TIME,
     Notas NVARCHAR(MAX),
-    CONSTRAINT FK_HistoricoCita_Cita FOREIGN KEY (id_Cita) REFERENCES CitaVacunacion(id_Cita) ON DELETE CASCADE
+    CONSTRAINT PK_HistoricoCita PRIMARY KEY (id_Historico, id_Cita),
+    CONSTRAINT FK_HistoricoCita_HistoricoVacunas FOREIGN KEY (id_Historico) REFERENCES HistoricoVacunas(id_Historico),
+    CONSTRAINT FK_HistoricoCita_CitaVacunacion FOREIGN KEY (id_Cita) REFERENCES CitaVacunacion(id_Cita)
+);
+GO
+
+-- Table: DisponibilidadHoraria (Availability)
+CREATE TABLE DisponibilidadHoraria (
+    id_Disponibilidad INT IDENTITY(1,1) PRIMARY KEY,
+    id_CentroVacunacion INT NOT NULL,
+    Fecha DATE NOT NULL,
+    HoraInicio TIME NOT NULL,
+    HoraFin TIME NOT NULL,
+    CuposTotales INT NOT NULL CHECK (CuposTotales >= 0),
+    CuposDisponibles INT NOT NULL CHECK (CuposDisponibles >= 0 AND CuposDisponibles <= CuposTotales),
+    CONSTRAINT FK_DisponibilidadHoraria_CentroVacunacion FOREIGN KEY (id_CentroVacunacion) REFERENCES CentroVacunacion(id_CentroVacunacion) ON DELETE CASCADE,
+    CONSTRAINT UQ_DisponibilidadHoraria_Slot UNIQUE (id_CentroVacunacion, Fecha, HoraInicio, HoraFin) -- Ensures a slot is unique
+);
+GO
+
+-- Table: EsquemaVacunacion (Childhood Vaccination Schedule)
+CREATE TABLE EsquemaVacunacion (
+    id_EsquemaVacuna INT PRIMARY KEY IDENTITY(1,1),
+    id_Vacuna INT NOT NULL,                      -- FK to Vacuna table
+    EdadRecomendadaMeses INT NOT NULL,           -- Recommended age for the first dose in months (e.g., 2 months)
+    IntervaloMesesSiguienteDosis INT NULL,       -- Time until the next dose, if applicable
+    NumeroDosis INT NOT NULL,                    -- Total number of doses required in the schedule
+    EsRefuerzo BIT DEFAULT 0,                    -- If this dose is a booster (optional)
+    FOREIGN KEY (id_Vacuna) REFERENCES Vacuna(id_Vacuna) ON DELETE CASCADE
 );
 GO
 
@@ -227,7 +259,8 @@ INSERT INTO Rol (Rol) VALUES
     ('Medico'),
     ('Enfermera'),
     ('Digitador'),
-    ('Tutor');
+    ('Tutor'),
+    ('Personal del Centro de Vacunación');
 GO
 
 INSERT INTO EstadoUsuario (Estado) VALUES

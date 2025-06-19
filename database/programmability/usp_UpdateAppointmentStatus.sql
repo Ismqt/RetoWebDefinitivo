@@ -21,6 +21,7 @@ BEGIN
     DECLARE @CurrentEstadoCitaId INT;
     DECLARE @NuevoEstadoCitaNombre NVARCHAR(50);
     DECLARE @CurrentEstadoCitaNombre NVARCHAR(50);
+    DECLARE @id_EstadoAsistida INT, @id_EstadoCanceladaPaciente INT, @id_EstadoCanceladaCentro INT, @id_EstadoNoAsistio INT;
 
     -- Validate Cita exists
     SELECT @CurrentEstadoCitaId = cv.id_EstadoCita, @CurrentEstadoCitaNombre = ec.Estado 
@@ -52,12 +53,17 @@ BEGIN
         RETURN;
     END
 
-    -- Business logic for state transitions (optional, can be expanded)
-    -- For example, prevent changing status if already 'Asistida' or 'Cancelada'
-    IF @CurrentEstadoCitaNombre IN ('Asistida', 'Cancelada por Paciente', 'Cancelada por Centro', 'No Asistio') AND @CurrentEstadoCitaId <> @id_NuevoEstadoCita
+    -- Get IDs for terminal and special states
+    SELECT @id_EstadoAsistida = id_Estado FROM dbo.EstadoCita WHERE Estado = 'Asistida';
+    SELECT @id_EstadoCanceladaPaciente = id_Estado FROM dbo.EstadoCita WHERE Estado = 'Cancelada por Paciente';
+    SELECT @id_EstadoCanceladaCentro = id_Estado FROM dbo.EstadoCita WHERE Estado = 'Cancelada por Centro';
+    SELECT @id_EstadoNoAsistio = id_Estado FROM dbo.EstadoCita WHERE Estado = 'No Asistio';
+
+    -- Business logic for state transitions using IDs
+    IF @CurrentEstadoCitaId IN (@id_EstadoAsistida, @id_EstadoCanceladaPaciente, @id_EstadoCanceladaCentro, @id_EstadoNoAsistio)
     BEGIN
-        -- Allow changing notes even if status is final, but not the status itself unless specific logic permits.
-        -- This example prevents changing from a terminal state to another state, unless it's the same state (e.g. updating notes for a cancelled appointment)
+        -- Allow changing notes even if status is final, but not the status itself.
+        -- This check prevents changing from a terminal state to any other state.
         IF @CurrentEstadoCitaId <> @id_NuevoEstadoCita 
         BEGIN
             SET @OutputMessage = 'Error: Appointment is already in a terminal state (' + @CurrentEstadoCitaNombre + ') and its status cannot be changed to ' + @NuevoEstadoCitaNombre + '.';
@@ -67,7 +73,7 @@ BEGIN
     END
     
     -- Prevent changing to 'Asistida' using this SP. usp_RecordVaccination should handle that.
-    IF @NuevoEstadoCitaNombre = 'Asistida'
+    IF @id_NuevoEstadoCita = @id_EstadoAsistida
     BEGIN
         SET @OutputMessage = 'Error: To mark an appointment as ''Asistida'', please use the usp_RecordVaccination procedure.';
         RAISERROR(@OutputMessage, 16, 1);
@@ -87,6 +93,12 @@ BEGIN
         -- The HistoricoCita table structure might need to be aligned with the data we want to log here.
         -- For example, it might need id_UsuarioModifica, id_EstadoAnterior, id_EstadoNuevo, FechaCambio, Notas.
         -- For now, we'll assume a simplified insert based on its current structure.
+        -- NOTE: The INSERT into HistoricoCita has been removed.
+        -- This table has been restructured to be a bridge between HistoricoVacunas and CitaVacunacion,
+        -- exclusively for logging attended vaccination events.
+        -- General status changes should be audited in a different table if required.
+        -- The procedure to handle attended appointments (e.g., usp_RecordVaccination) is now responsible for inserting into HistoricoCita.
+        /*
         INSERT INTO dbo.HistoricoCita (id_Cita, Vacuna, NombreCompletoPersonal, CentroMedico, Fecha, Hora, Notas)
         SELECT 
             @id_Cita,
@@ -98,9 +110,10 @@ BEGIN
             'Status changed from ' + @CurrentEstadoCitaNombre + ' to ' + @NuevoEstadoCitaNombre + '. User: ' + CAST(@id_UsuarioModifica AS NVARCHAR(10)) + '. Notes: ' + ISNULL(@Notas, 'N/A')
         FROM dbo.CitaVacunacion c 
         JOIN dbo.Vacuna v ON c.id_Vacuna = v.id_Vacuna
-        JOIN dbo.Usuario u ON u.id_Usuario = @id_UsuarioModifica
         JOIN dbo.CentroVacunacion cvc ON c.id_CentroVacunacion = cvc.id_CentroVacunacion
+        JOIN dbo.Usuario u ON u.id_Usuario = @id_UsuarioModifica
         WHERE c.id_Cita = @id_Cita;
+        */
 
         COMMIT TRANSACTION;
         SET @OutputMessage = 'Appointment ID ' + CAST(@id_Cita AS NVARCHAR(10)) + ' status updated to ''' + @NuevoEstadoCitaNombre + ''' successfully.';

@@ -22,10 +22,13 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @id_EstadoCita_Agendada INT;
+    DECLARE @id_EstadoCita_Agendada INT, @id_EstadoCanceladaCentro INT, @id_EstadoCanceladaPaciente INT;
 
     -- Get ID for 'Agendada' state
     SELECT @id_EstadoCita_Agendada = id_Estado FROM dbo.EstadoCita WHERE Estado = 'Agendada';
+    SELECT @id_EstadoCanceladaCentro = id_Estado FROM dbo.EstadoCita WHERE Estado = 'Cancelada por Centro';
+    SELECT @id_EstadoCanceladaPaciente = id_Estado FROM dbo.EstadoCita WHERE Estado = 'Cancelada por Paciente';
+
     IF @id_EstadoCita_Agendada IS NULL
     BEGIN
         SET @OutputMessage = 'Error: Appointment state ''Agendada'' not found. Please ensure initial data is populated.';
@@ -71,15 +74,13 @@ BEGIN
 
     -- Optional: Check for duplicate appointments (same child, same vaccine, same day)
     -- This logic can be adjusted based on specific business rules.
-    /*
     IF EXISTS (SELECT 1 FROM dbo.CitaVacunacion 
-               WHERE id_Nino = @id_Nino AND id_Vacuna = @id_Vacuna AND Fecha = @Fecha AND id_EstadoCita <> (SELECT id_Estado FROM EstadoCita WHERE Estado = 'Cancelada'))
+               WHERE id_Nino = @id_Nino AND id_Vacuna = @id_Vacuna AND Fecha = @Fecha AND id_EstadoCita NOT IN (@id_EstadoCanceladaCentro, @id_EstadoCanceladaPaciente))
     BEGIN
         SET @OutputMessage = 'Error: An active appointment for this child, vaccine, and date already exists.';
         RAISERROR(@OutputMessage, 16, 1);
         RETURN;
     END
-    */
 
     BEGIN TRANSACTION;
 

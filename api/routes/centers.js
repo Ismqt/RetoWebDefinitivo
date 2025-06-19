@@ -46,7 +46,7 @@ router.get('/statuses', verifyToken, async (req, res) => {
 });
 
 // POST /api/vaccination-centers - Create a new vaccination center
-router.post('/', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.post('/', [verifyToken, checkRole([1])], async (req, res) => {
     try {
         const {
             Nombre, Director, Direccion, id_Provincia, id_Municipio,
@@ -74,7 +74,7 @@ router.post('/', [verifyToken, checkRole(['Administrador'])], async (req, res) =
 });
 
 // PUT /api/vaccination-centers/:id - Update a vaccination center
-router.put('/:id', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.put('/:id', [verifyToken, checkRole([1])], async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -104,7 +104,7 @@ router.put('/:id', [verifyToken, checkRole(['Administrador'])], async (req, res)
 });
 
 // DELETE /:id - Soft delete a vaccination center (set status to Inactivo)
-router.delete('/:id', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.delete('/:id', [verifyToken, checkRole([1])], async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;

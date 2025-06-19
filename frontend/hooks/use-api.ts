@@ -72,7 +72,7 @@ const useApi = <T = any>() => {
         setLoading(false);
       }
     },
-    [token, logout]
+    [token, logout, authLoading]
   );
 
   return { data, error, loading, request };

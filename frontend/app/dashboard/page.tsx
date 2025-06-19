@@ -7,23 +7,35 @@ import useApi from "@/hooks/use-api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, Clock, Users, AlertCircle } from "lucide-react"
+import ChildCardEnhanced, { EnhancedChild } from "@/components/children/child-card-enhanced"
+import { Calendar, Clock, Users, AlertCircle, UserCheck, Stethoscope } from "lucide-react"
+import AppointmentCard from "@/components/appointments/appointment-card"
 import Link from "next/link"
+import { formatTimeString, combineDateTime, formatDisplayDate } from "@/utils/format-time"
 
 interface Appointment {
   id_Cita: number
+  NombrePaciente: string
   Fecha: string
   Hora: string
   NombreVacuna: string
   NombreCentro: string
   EstadoCita: string
+  id_EstadoCita?: number // 3 = Asistida
+  RequiereTutor: boolean
+  NombreCompletoPersonalAplicado: string | null
+  id_PersonalSalud: number | null
+  NombrePersonalSalud: string | null
 }
 
 export default function DashboardPage() {
   const { user, token, loading: authLoading } = useAuth()
   const router = useRouter()
   const [allAppointments, setAllAppointments] = useState<Appointment[] | null>(null)
+  const [childrenCount, setChildrenCount] = useState<number | null>(null)
+  const [children, setChildren] = useState<EnhancedChild[]>([])
   const { request: callApi, loading: appointmentsLoading } = useApi()
+  const { request: fetchChildren, loading: childrenLoading } = useApi<EnhancedChild[]>()
 
   const fetchAppointments = useCallback(async () => {
     if (!token) {
@@ -31,12 +43,34 @@ export default function DashboardPage() {
     }
     try {
       const data = await callApi("/api/appointments", { method: "GET" })
+      console.log("📅 Appointments data received:", data) // Debug log
       setAllAppointments(data)
     } catch (err) {
       console.error("Failed to fetch appointments:", err)
       setAllAppointments([])
     }
   }, [token, callApi])
+
+  // Fetch children for tutors
+  const loadChildren = useCallback(async () => {
+    if (!user || user.role !== "Tutor") return
+    try {
+      const data = await fetchChildren(`/api/ninos/tutor/${user.id}/detailed`)
+      if (Array.isArray(data)) {
+        setChildren(data)
+        setChildrenCount(data.length)
+      } else if (data && Array.isArray(data.recordset)) {
+        setChildren(data.recordset)
+        setChildrenCount(data.recordset.length)
+      } else {
+        setChildren([])
+        setChildrenCount(0)
+      }
+    } catch (err) {
+      console.error("Failed to fetch children:", err)
+      setChildrenCount(0)
+    }
+  }, [user, fetchChildren])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -46,30 +80,108 @@ export default function DashboardPage() {
     }
   }, [user, authLoading, router, fetchAppointments])
 
-  const combineDateTime = useCallback((dateStr: string, timeStr: string | null): Date => {
-    const datePart = dateStr.substring(0, 10)
-    const timePart = timeStr ? timeStr.substring(11, 19) : "00:00:00"
-    return new Date(`${datePart}T${timePart}`)
-  }, [])
-
-  const formatDate = useCallback((date: Date) => {
-    if (isNaN(date.getTime())) {
-      return "Fecha inválida"
+  // Load children when user is available
+  useEffect(() => {
+    if (user) {
+      loadChildren()
     }
-    return new Intl.DateTimeFormat("es-ES", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(date)
-  }, [])
+  }, [user, loadChildren])
 
   const upcomingAppointments = useMemo(() => {
     if (!allAppointments) return []
+
     return allAppointments
-      .filter((appointment) => appointment.EstadoCita !== "Completada" && appointment.EstadoCita !== "Cancelada")
-      .sort((a, b) => combineDateTime(a.Fecha, a.Hora).getTime() - combineDateTime(b.Fecha, b.Hora).getTime())
+      .filter((appointment) =>
+        appointment.EstadoCita !== "Completada" &&
+        appointment.EstadoCita !== "Cancelada" &&
+        appointment.id_EstadoCita !== 3 &&
+        appointment.EstadoCita !== "Asistida"
+      )
+      .map((appointment) => ({
+        ...appointment,
+        combinedDate: combineDateTime(appointment.Fecha, appointment.Hora),
+      }))
+      .sort((a, b) => a.combinedDate.getTime() - b.combinedDate.getTime())
       .slice(0, 5)
-  }, [allAppointments, combineDateTime])
+  }, [allAppointments])
+
+  const attendedAppointments = useMemo(() => {
+    if (!allAppointments) return []
+
+    return allAppointments
+      .filter((a) => a.id_EstadoCita === 3 || a.EstadoCita === "Asistida")
+      .map((a) => ({ ...a, combinedDate: combineDateTime(a.Fecha, a.Hora) }))
+      .sort((a, b) => b.combinedDate.getTime() - a.combinedDate.getTime())
+  }, [allAppointments])
+
+  const renderAppointmentCard = (appointment: Appointment & { combinedDate?: Date }) => {
+    const isConfirmed = appointment.EstadoCita === "Confirmada"
+    const hasDoctor = appointment.NombrePersonalSalud && appointment.NombrePersonalSalud.trim() !== ""
+
+    return (
+      <div key={appointment.id_Cita} className="flex items-center justify-between rounded-lg border p-4">
+        <div className="space-y-1 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium">{appointment.NombreVacuna}</p>
+            {appointment.RequiereTutor && (
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">👶 Niño</span>
+            )}
+            {isConfirmed && (
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1">
+                <UserCheck className="h-3 w-3" />
+                Confirmada
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Calendar className="mr-1 h-4 w-4" />
+            {appointment.combinedDate
+              ? formatDisplayDate(appointment.combinedDate)
+              : formatDisplayDate(combineDateTime(appointment.Fecha, appointment.Hora))}
+          </div>
+
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Clock className="mr-1 h-4 w-4" />
+            {formatTimeString(appointment.Hora)}
+          </div>
+
+          <p className="text-sm text-muted-foreground">{appointment.NombreCentro}</p>
+          <p className="text-sm font-medium text-gray-700">Paciente: {appointment.NombrePaciente}</p>
+
+          {/* Mostrar médico si la cita está confirmada */}
+          {isConfirmed && hasDoctor && (
+            <div className="flex items-center text-sm text-green-700 bg-green-50 px-2 py-1 rounded-md mt-2">
+              <Stethoscope className="mr-1 h-4 w-4" />
+              <span className="font-medium">Dr(a). {appointment.NombrePersonalSalud}</span>
+            </div>
+          )}
+
+          {/* Mostrar si está confirmada pero sin médico asignado */}
+          {isConfirmed && !hasDoctor && (
+            <div className="flex items-center text-sm text-amber-700 bg-amber-50 px-2 py-1 rounded-md mt-2">
+              <AlertCircle className="mr-1 h-4 w-4" />
+              <span>Confirmada - Médico por asignar</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={`rounded-full px-2 py-1 text-xs font-medium ${
+              appointment.EstadoCita === "Confirmada"
+                ? "bg-green-100 text-green-800"
+                : appointment.EstadoCita === "Agendada"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : "bg-primary/10 text-primary"
+            }`}
+          >
+            {appointment.EstadoCita}
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   if (authLoading) {
     return (
@@ -132,7 +244,7 @@ export default function DashboardPage() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">--</div>
+                  <div className="text-2xl font-bold">{childrenCount !== null ? childrenCount : "--"}</div>
                   <p className="text-xs text-muted-foreground">Niños bajo su tutela</p>
                 </CardContent>
               </Card>
@@ -145,42 +257,51 @@ export default function DashboardPage() {
               <CardDescription>Visualice sus próximas citas de vacunación</CardDescription>
             </CardHeader>
             <CardContent>
-              {appointmentsLoading ? (
-                <div className="flex h-40 items-center justify-center">
-                  <p className="text-muted-foreground">Cargando citas...</p>
-                </div>
-              ) : upcomingAppointments.length > 0 ? (
-                <div className="space-y-4">
-                  {upcomingAppointments.map((appointment) => (
-                    <div key={appointment.id_Cita} className="flex items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-1">
-                        <p className="font-medium">{appointment.NombreVacuna}</p>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Calendar className="mr-1 h-4 w-4" />
-                          {formatDate(combineDateTime(appointment.Fecha, appointment.Hora))}
-                        </div>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Clock className="mr-1 h-4 w-4" />
-                          {appointment.Hora.substring(0, 5)}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{appointment.NombreCentro}</p>
-                      </div>
-                      <div>
-                        <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                          {appointment.EstadoCita}
-                        </span>
-                      </div>
+              <Tabs defaultValue="upcoming" className="w-full">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="upcoming">Próximas ({upcomingAppointments.length})</TabsTrigger>
+                  <TabsTrigger value="attended">Asistidas ({attendedAppointments.length})</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="upcoming">
+                  {appointmentsLoading ? (
+                    <div className="flex h-40 items-center justify-center">
+                      <p className="text-muted-foreground">Cargando citas...</p>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex h-40 flex-col items-center justify-center space-y-3">
-                  <p className="text-muted-foreground">No tiene citas programadas</p>
-                  <Button asChild>
-                    <Link href="/appointments/new">Agendar Cita</Link>
-                  </Button>
-                </div>
-              )}
+                  ) : upcomingAppointments.length > 0 ? (
+                    <div className="space-y-4">
+                      {upcomingAppointments.map((appointment) => (
+                          <AppointmentCard key={appointment.id_Cita} appointment={appointment} />
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="flex h-40 flex-col items-center justify-center space-y-3">
+                      <p className="text-muted-foreground">No tiene citas programadas</p>
+                      <Button asChild>
+                        <Link href="/appointments/new">Agendar Cita</Link>
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="attended">
+                  {appointmentsLoading ? (
+                    <div className="flex h-40 items-center justify-center">
+                      <p className="text-muted-foreground">Cargando citas...</p>
+                    </div>
+                  ) : attendedAppointments.length > 0 ? (
+                    <div className="space-y-4">
+                      {attendedAppointments.map((appointment) => (
+                          <AppointmentCard key={appointment.id_Cita} appointment={appointment} />
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="flex h-40 items-center justify-center text-muted-foreground">
+                      No tiene citas asistidas
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
@@ -205,24 +326,64 @@ export default function DashboardPage() {
                 <div className="space-y-4">
                   {allAppointments.map((appointment) => (
                     <div key={appointment.id_Cita} className="flex items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-1">
-                        <p className="font-medium">{appointment.NombreVacuna}</p>
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{appointment.NombreVacuna}</p>
+                          {appointment.RequiereTutor && (
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">👶 Niño</span>
+                          )}
+                          {appointment.EstadoCita === "Confirmada" && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1">
+                              <UserCheck className="h-3 w-3" />
+                              Confirmada
+                            </span>
+                          )}
+                        </div>
+
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Calendar className="mr-1 h-4 w-4" />
-                          {formatDate(combineDateTime(appointment.Fecha, appointment.Hora))}
+                          {formatDisplayDate(combineDateTime(appointment.Fecha, appointment.Hora))}
                         </div>
+
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Clock className="mr-1 h-4 w-4" />
-                          {appointment.Hora.substring(0, 5)}
+                          {formatTimeString(appointment.Hora)}
                         </div>
+
                         <p className="text-sm text-muted-foreground">{appointment.NombreCentro}</p>
+                        <p className="text-sm font-medium text-gray-700">Paciente: {appointment.NombrePaciente}</p>
+
+                        {/* Mostrar médico si la cita está confirmada */}
+                        {appointment.EstadoCita === "Confirmada" && appointment.NombrePersonalSalud && (
+                          <div className="flex items-center text-sm text-green-700 bg-green-50 px-2 py-1 rounded-md mt-2">
+                            <Stethoscope className="mr-1 h-4 w-4" />
+                            <span className="font-medium">Dr(a). {appointment.NombrePersonalSalud}</span>
+                          </div>
+                        )}
+
+                        {/* Mostrar si está confirmada pero sin médico asignado */}
+                        {appointment.EstadoCita === "Confirmada" && !appointment.NombrePersonalSalud && (
+                          <div className="flex items-center text-sm text-amber-700 bg-amber-50 px-2 py-1 rounded-md mt-2">
+                            <AlertCircle className="mr-1 h-4 w-4" />
+                            <span>Confirmada - Médico por asignar</span>
+                          </div>
+                        )}
                       </div>
+
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-medium ${
+                            appointment.EstadoCita === "Confirmada"
+                              ? "bg-green-100 text-green-800"
+                              : appointment.EstadoCita === "Agendada"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-primary/10 text-primary"
+                          }`}
+                        >
                           {appointment.EstadoCita}
                         </span>
                         <Button variant="outline" size="sm" asChild>
-                          <Link href={`/appointments/${appointment.id_Cita}`}>Ver Detalles</Link>
+                          <Link href={`/dashboard/appointments/${appointment.id_Cita}`}>Ver Detalles</Link>
                         </Button>
                       </div>
                     </div>
@@ -253,12 +414,20 @@ export default function DashboardPage() {
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="flex h-60 flex-col items-center justify-center space-y-3">
-                  <p className="text-muted-foreground">No tiene niños registrados</p>
-                  <Button asChild>
-                    <Link href="/children/new">Registrar Niño</Link>
-                  </Button>
-                </div>
+                {children.length > 0 ? (
+                  <div className="space-y-4">
+                    {children.map((child) => (
+                      <ChildCardEnhanced key={child.id_Nino} child={child} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-60 flex-col items-center justify-center space-y-3">
+                    <p className="text-muted-foreground">No tiene niños registrados</p>
+                    <Button asChild>
+                      <Link href="/children/new">Registrar Niño</Link>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

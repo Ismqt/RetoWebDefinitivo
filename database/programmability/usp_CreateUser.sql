@@ -3,22 +3,24 @@ CREATE OR ALTER PROCEDURE [dbo].[usp_CreateUser]
     @Cedula_Usuario NVARCHAR(15),
     @Email NVARCHAR(100),
     @Clave NVARCHAR(255),
+    @Nombre NVARCHAR(50),
+    @Apellido NVARCHAR(50),
     @id_CentroVacunacion INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     
     -- 1. Validate input parameters are not null
-    IF @id_Rol IS NULL OR @Cedula_Usuario IS NULL OR @Email IS NULL OR @Clave IS NULL
+    IF @id_Rol IS NULL OR @Cedula_Usuario IS NULL OR @Email IS NULL OR @Clave IS NULL OR @Nombre IS NULL OR @Apellido IS NULL
     BEGIN
-        RAISERROR('Input parameters (Role, Cedula, Email, Password) cannot be null.', 16, 1);
+        RAISERROR('Input parameters (Role, Cedula, Email, Password, Nombre, Apellido) cannot be null.', 16, 1);
         RETURN;
     END
 
     -- 2. Check for duplicate user
     IF EXISTS (SELECT 1 FROM Usuario WHERE Email = @Email OR Cedula_Usuario = @Cedula_Usuario)
     BEGIN
-        RAISERROR('A user with the provided Email or Cedula already exists.', 16, 1);
+        RAISERROR('User with the provided Email or Cedula already exists.', 16, 1);
         RETURN;
     END
 
@@ -51,8 +53,8 @@ BEGIN
     END
 
     -- All checks passed, proceed with insert
-    INSERT INTO Usuario (id_Rol, id_Estado, Cedula_Usuario, Email, Clave, id_CentroVacunacion)
-    VALUES (@id_Rol, 1, @Cedula_Usuario, @Email, @Clave, @id_CentroVacunacion); -- Default state 1 = 'Activo'
+    INSERT INTO Usuario (id_Rol, id_Estado, Cedula_Usuario, Email, Clave, Nombre, Apellido, id_CentroVacunacion)
+    VALUES (@id_Rol, 1, @Cedula_Usuario, @Email, @Clave, @Nombre, @Apellido, @id_CentroVacunacion); -- Default state 1 = 'Activo'
 
     -- Return the ID of the newly created user
     SELECT SCOPE_IDENTITY() AS id_Usuario;

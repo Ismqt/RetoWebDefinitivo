@@ -7,8 +7,9 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE dbo.usp_AddVaccineLot
+CREATE PROCEDURE [dbo].[usp_AddVaccineLot]
     @id_VacunaCatalogo INT,
+    @id_CentroVacunacion INT,
     @NumeroLote NVARCHAR(50),
     @FechaCaducidad DATE,
     @CantidadInicial INT,
@@ -27,6 +28,13 @@ BEGIN
         RETURN;
     END
 
+    IF NOT EXISTS (SELECT 1 FROM dbo.CentroVacunacion WHERE id_CentroVacunacion = @id_CentroVacunacion) -- Added validation
+    BEGIN
+        SET @OutputMessage = 'Error: Specified CentroVacunacion (Vaccination Center) ID does not exist.';
+        RAISERROR(@OutputMessage, 16, 1);
+        RETURN;
+    END
+
     IF @CantidadInicial < 0
     BEGIN
         SET @OutputMessage = 'Error: CantidadInicial (Initial Quantity) cannot be negative.';
@@ -41,11 +49,11 @@ BEGIN
         RETURN;
     END
 
-    -- The UNIQUE constraint UQ_Lote_VacunaCatalogo_NumeroLote will handle duplicate check for NumeroLote per id_VacunaCatalogo
+    -- The UNIQUE constraint UQ_Lote_Centro_Vacuna_NumeroLote will handle duplicate check.
     -- However, we can provide a more user-friendly message if we check it here.
-    IF EXISTS (SELECT 1 FROM dbo.Lote WHERE id_VacunaCatalogo = @id_VacunaCatalogo AND NumeroLote = @NumeroLote)
+    IF EXISTS (SELECT 1 FROM dbo.Lote WHERE id_CentroVacunacion = @id_CentroVacunacion AND id_VacunaCatalogo = @id_VacunaCatalogo AND NumeroLote = @NumeroLote) -- Updated duplicate check
     BEGIN
-        SET @OutputMessage = 'Error: A lot with this NumeroLote for the specified vaccine already exists.';
+        SET @OutputMessage = 'Error: A lot with this NumeroLote for the specified vaccine and vaccination center already exists.';
         RAISERROR(@OutputMessage, 16, 1);
         RETURN;
     END
@@ -55,6 +63,7 @@ BEGIN
     BEGIN TRY
         INSERT INTO dbo.Lote (
             id_VacunaCatalogo, 
+            id_CentroVacunacion, -- Added column
             NumeroLote, 
             FechaCaducidad, 
             CantidadInicial, 
@@ -62,6 +71,7 @@ BEGIN
         )
         VALUES (
             @id_VacunaCatalogo, 
+            @id_CentroVacunacion, -- Added value
             @NumeroLote, 
             @FechaCaducidad, 
             @CantidadInicial, 
@@ -99,9 +109,9 @@ BEGIN
                              ', Line: ' + ISNULL(CAST(@CaughtErrorLine AS NVARCHAR(10)), 'N/A') + ')';
 
         -- Customize message for known errors like unique constraint violation
-        IF @CaughtErrorNumber = 2627 -- Unique constraint violation for UQ_Lote_VacunaCatalogo_NumeroLote
+        IF @CaughtErrorNumber = 2627 -- Unique constraint violation for UQ_Lote_Centro_Vacuna_NumeroLote
         BEGIN
-            SET @OutputMessage = 'Error: A lot with NumeroLote ''' + @NumeroLote + ''' for Vacuna ID ' + CAST(@id_VacunaCatalogo AS NVARCHAR(10)) + ' already exists. ' + ISNULL(@CaughtErrorMessage, '');
+            SET @OutputMessage = 'Error: A lot with NumeroLote ''' + @NumeroLote + ''' for Vacuna ID ' + CAST(@id_VacunaCatalogo AS NVARCHAR(10)) + ' and CentroVacunacion ID ' + CAST(@id_CentroVacunacion AS NVARCHAR(10)) + ' already exists. ' + ISNULL(@CaughtErrorMessage, '');
         END
         
         -- Re-raise the error using RAISERROR to ensure the client is notified

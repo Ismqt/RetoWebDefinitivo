@@ -38,63 +38,63 @@ const menuItems = {
       title: "Dashboard",
       url: "/dashboard",
       icon: LayoutDashboard,
-      roles: ["medico", "digitador", "supervisor", "administrador"],
+      roles: [2, 4, 6, 1], // medico, digitador, supervisor, administrador
     },
     {
       title: "Pacientes",
       url: "/dashboard/patients",
       icon: Users,
-      roles: ["medico", "digitador", "supervisor", "administrador"],
+      roles: [2, 4, 6, 1], // medico, digitador, supervisor, administrador
     },
     {
       title: "Vacunación",
       url: "/dashboard/vaccination",
       icon: Syringe,
-      roles: ["medico", "digitador", "supervisor", "administrador"],
+      roles: [2, 6, 1], // medico, supervisor, administrador
     },
     {
       title: "Citas",
       url: "/dashboard/appointments",
       icon: Calendar,
-      roles: ["medico", "digitador", "supervisor", "administrador"],
+      roles: [2, 4, 6, 1], // medico, digitador, supervisor, administrador
     },
     {
       title: "Alertas",
       url: "/dashboard/alerts",
       icon: AlertTriangle,
-      roles: ["medico", "digitador", "supervisor", "administrador"],
+      roles: [2, 4, 6, 1], // medico, digitador, supervisor, administrador
     },
   ],
   admin: [
     {
-        title: "User Management",
-        url: "/admin/users",
-        icon: Users,
-        roles: ["administrador"],
-      },
-      {
-        title: "Centros de Vacunación",
+      title: "User Management",
+      url: "/admin/users",
+      icon: Users,
+      roles: [1], // administrador
+    },
+    {
+      title: "Centros de Vacunación",
       url: "/admin/centers",
       icon: Building2,
-      roles: ["supervisor", "administrador"],
+      roles: [1, 6], // administrador, supervisor
     },
     {
       title: "Reportes",
       url: "/reports",
       icon: BarChart3,
-      roles: ["supervisor", "administrador"],
+      roles: [1, 6], // administrador, supervisor
     },
     {
       title: "Auditoría",
       url: "/admin/audit-log",
       icon: Shield,
-      roles: ["administrador"],
+      roles: [1], // administrador
     },
     {
       title: "Configuración",
       url: "/admin/settings",
       icon: Settings,
-      roles: ["administrador"],
+      roles: [1], // administrador
     },
   ],
 }
@@ -108,8 +108,8 @@ export function AppSidebar() {
     router.push("/login")
   }
 
-  const canAccess = (roles: string[]) => {
-    return user && roles.includes(user.role)
+  const canAccess = (roles: number[]) => {
+    return user && roles.includes(user.id_Rol)
   }
 
   return (

@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import useApi from "@/hooks/use-api"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,7 @@ import { Loader2, Calendar } from "lucide-react"
 
 interface VaccinationCenter {
   id_CentroVacunacion: number
-  NombreCentro: string
+  Nombre: string
 }
 
 interface Vaccine {
@@ -33,6 +33,7 @@ export default function NewAppointmentPage() {
   const { user, token, loading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const searchParams = useSearchParams()
 
   const [centers, setCenters] = useState<VaccinationCenter[]>([])
   const [vaccines, setVaccines] = useState<Vaccine[]>([])
@@ -59,8 +60,9 @@ export default function NewAppointmentPage() {
       setCenters(centersData || [])
       setVaccines(vaccinesData || [])
 
-      if (user?.role === "Tutor") {
-        const childrenData = await callApi(`/api/tutors/${user.id}/children`, { method: "GET" })
+      if (user?.id_Rol === 5) {
+        // Ajuste de endpoint de niños para tutor actual
+        const childrenData = await callApi(`/api/ninos/tutor/${user.id}/detailed`, { method: "GET" })
         setChildren(childrenData || [])
       }
     } catch (error) {
@@ -76,7 +78,17 @@ export default function NewAppointmentPage() {
     if (!authLoading && !user) {
       router.push("/login")
     } else if (user) {
-      fetchInitialData()
+      fetchInitialData().then(() => {
+        const childId = searchParams.get('childId');
+        const vaccineId = searchParams.get('vaccineId');
+        if (childId) {
+          setAppointmentFor('child');
+          handleChange('id_Nino', childId);
+        }
+        if (vaccineId) {
+          handleChange('id_Vacuna', vaccineId);
+        }
+      });
     }
   }, [authLoading, user, router, fetchInitialData])
 
@@ -87,7 +99,7 @@ export default function NewAppointmentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (appointmentFor === "self" && user?.role !== "Tutor") {
+    if (appointmentFor === "self" && user?.id_Rol !== 5) {
       toast({
         variant: "destructive",
         title: "Funcionalidad no disponible",
@@ -97,12 +109,12 @@ export default function NewAppointmentPage() {
     }
 
     const appointmentData = {
-      ...formData,
+      Fecha: formData.FechaCita,
+      Hora: formData.HoraCita,
       id_Nino: appointmentFor === "child" && formData.id_Nino ? Number(formData.id_Nino) : null,
-      id_Usuario: user?.id,
       id_CentroVacunacion: Number(formData.id_CentroVacunacion),
       id_Vacuna: Number(formData.id_Vacuna),
-    }
+    };
 
     try {
       await createAppointment("/api/appointments", { method: "POST", body: appointmentData })
@@ -137,7 +149,7 @@ export default function NewAppointmentPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {user?.role === "Tutor" && (
+            {user?.id_Rol === 5 && (
               <div className="space-y-2">
                 <Label>¿Para quién es la cita?</Label>
                 <Select onValueChange={(value) => setAppointmentFor(value as "self" | "child")} defaultValue="self">
@@ -152,10 +164,10 @@ export default function NewAppointmentPage() {
               </div>
             )}
 
-            {appointmentFor === "child" && user?.role === "Tutor" && (
+            {appointmentFor === "child" && user?.id_Rol === 5 && (
               <div className="space-y-2">
                 <Label htmlFor="id_Nino">Niño</Label>
-                <Select onValueChange={(value) => handleChange("id_Nino", value)} required={appointmentFor === "child"}>
+                <Select onValueChange={(value) => handleChange("id_Nino", value)} value={formData.id_Nino} required={appointmentFor === "child"}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione un niño" />
                   </SelectTrigger>
@@ -185,7 +197,7 @@ export default function NewAppointmentPage() {
                 <SelectContent>
                   {centers?.map((center) => (
                     <SelectItem key={center.id_CentroVacunacion} value={center.id_CentroVacunacion.toString()}>
-                      {center.NombreCentro}
+                      {center.Nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -194,7 +206,7 @@ export default function NewAppointmentPage() {
 
             <div className="space-y-2">
               <Label htmlFor="id_Vacuna">Vacuna</Label>
-              <Select onValueChange={(value) => handleChange("id_Vacuna", value)} required>
+              <Select onValueChange={(value) => handleChange("id_Vacuna", value)} value={formData.id_Vacuna} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccione una vacuna" />
                 </SelectTrigger>

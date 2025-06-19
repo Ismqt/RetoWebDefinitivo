@@ -8,6 +8,8 @@ interface User {
   name: string;
   email: string;
   role: string;
+  id_Rol: number;
+  id_CentroVacunacion?: number; // Optional, as not all roles might have it
 }
 
 interface AuthContextType {
@@ -58,7 +60,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
-    router.push('/dashboard');
+    console.log('[AuthContext] User object received in login:', JSON.stringify(newUser, null, 2));
+    console.log('[AuthContext] Condition (newUser.id_Rol === 2):', newUser.id_Rol === 2);
+    if (newUser.id_Rol === 2) { // Role ID for 'Médico'
+      console.log('[AuthContext] Redirecting to /management/medical/appointments');
+      router.push('/management/medical/appointments');
+    } else if (newUser.id_Rol === 1 || newUser.id_Rol === 6) {
+      // Admin: redirigir a disponibilidad (gestión)
+      console.log('[AuthContext] User with role', newUser.id_Rol, 'redirecting to /management/availability');
+      router.push('/management/availability');
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   const logout = () => {

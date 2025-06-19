@@ -22,6 +22,7 @@ router.get('/vaccines', verifyToken, async (req, res) => {
 // --- Tutor Endpoints ---
 // POST /api/tutors - Register a new Tutor and associated User with a hashed password
 router.post('/tutors', async (req, res) => {
+    console.log(`[ROUTE HANDLER] POST /api/tutors reached in other.js`); // <-- ADD THIS LOG
     console.log(`Accessed POST /api/tutors with body: ${JSON.stringify(req.body)}`);
 
     const { Nombres, Apellidos, TipoIdentificacion, NumeroIdentificacion, Telefono, Direccion, Email, Username } = req.body;
@@ -63,18 +64,39 @@ router.post('/tutors', async (req, res) => {
     }
 });
 
-router.get('/tutors/:tutorId/ninos', [verifyToken, checkRole(['Administrador', 'Medico'])], async (req, res) => {
-    console.log(`Accessed GET /api/tutors/:tutorId/ninos with params: ${JSON.stringify(req.params)}`);
+// GET /api/tutors/:userId/children - Get all children associated with a tutor's user ID
+router.get('/tutors/:userId/children', [verifyToken, checkRole([1, 5])], async (req, res) => {
     try {
-        const { tutorId } = req.params;
+        const { userId } = req.params;
+        const { id: requestingUserId, id_Rol: requestingUserRole } = req.user;
+
+        // Security check: Tutors can only view their own children.
+        if (requestingUserRole === 5 && requestingUserId.toString() !== userId) {
+            return res.status(403).send({ message: 'Forbidden: You can only view your own children.' });
+        }
+
         const pool = await poolPromise;
-        const result = await pool.request()
+
+        // First, find the id_Tutor from the id_Usuario (userId)
+        const tutorResult = await pool.request()
+            .input('id_Usuario', sql.Int, userId)
+            .query('SELECT id_Tutor FROM Tutores WHERE id_Usuario = @id_Usuario');
+
+        if (tutorResult.recordset.length === 0) {
+            return res.status(404).send({ message: 'Tutor not found for the given user ID.' });
+        }
+
+        const tutorId = tutorResult.recordset[0].id_Tutor;
+
+        // Now, get the children using the correct id_Tutor
+        const childrenResult = await pool.request()
             .input('id_Tutor', sql.Int, tutorId)
             .execute('usp_GetNinosByTutorId');
 
-        res.json(result.recordset);
+        res.json(childrenResult.recordset);
+
     } catch (err) {
-        console.error('SQL error on GET /api/tutors/:tutorId/ninos:', err);
+        console.error(`SQL error on GET /api/tutors/${req.params.userId}/children:`, err);
         res.status(500).send({ message: 'Failed to retrieve children.', error: err.message });
     }
 });

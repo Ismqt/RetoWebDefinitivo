@@ -7,6 +7,12 @@ BEGIN
 END
 GO
 
+IF OBJECT_ID('dbo.usp_RecordVaccination', 'P') IS NOT NULL
+BEGIN
+    DROP PROCEDURE dbo.usp_RecordVaccination;
+END
+GO
+
 CREATE PROCEDURE dbo.usp_RecordVaccination
     @id_Cita INT,
     @id_PersonalSalud_Usuario INT, -- User ID of the logged-in health personnel
@@ -22,28 +28,24 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @id_EstadoCita_Asistida INT;
+    -- Hardcoded state IDs based on the application's design
+    -- 1 = Agendada, 2 = Confirmada, 3 = Asistida
+    DECLARE @id_EstadoAgendada INT = 1;
+    DECLARE @id_EstadoConfirmada INT = 2;
+    DECLARE @id_EstadoCita_Asistida INT = 3;
+
     DECLARE @id_Nino INT;
+    DECLARE @id_Tutor INT;
     DECLARE @id_Vacuna INT;
     DECLARE @VacunaNombre NVARCHAR(100);
     DECLARE @FabricanteNombre NVARCHAR(100);
     DECLARE @LoteNumero NVARCHAR(50);
     DECLARE @FechaAplicacion DATE;
 
-    -- Get ID for 'Asistida' state
-    SELECT @id_EstadoCita_Asistida = id_Estado FROM dbo.EstadoCita WHERE Estado = 'Asistida';
-    IF @id_EstadoCita_Asistida IS NULL
-    BEGIN
-        SET @OutputMessage = 'Error: Appointment state ''Asistida'' not found. Please ensure initial data is populated.';
-        RAISERROR(@OutputMessage, 16, 1);
-        RETURN;
-    END
-
-    -- Validate Cita exists and is in a schedulable state (e.g., 'Agendada' or 'Confirmada')
-    SELECT @id_Nino = c.id_Nino, @id_Vacuna = c.id_Vacuna, @FechaAplicacion = c.Fecha
+    -- Validate Cita exists and is in a schedulable state (using IDs)
+    SELECT @id_Nino = c.id_Nino, @id_Tutor = c.id_UsuarioRegistraCita, @id_Vacuna = c.id_Vacuna, @FechaAplicacion = c.Fecha
     FROM dbo.CitaVacunacion c
-    JOIN dbo.EstadoCita ec ON c.id_EstadoCita = ec.id_Estado
-    WHERE c.id_Cita = @id_Cita AND ec.Estado IN ('Agendada', 'Confirmada');
+    WHERE c.id_Cita = @id_Cita AND c.id_EstadoCita IN (@id_EstadoAgendada, @id_EstadoConfirmada);
 
     IF @id_Nino IS NULL
     BEGIN
@@ -97,17 +99,55 @@ BEGIN
         SET CantidadDisponible = CantidadDisponible - 1
         WHERE id_LoteVacuna = @id_LoteAplicado;
 
-        -- Insert into HistoricoVacunas
+        -- Insert into HistoricoVacunas and capture the new ID
+        DECLARE @New_id_Historico INT;
+
         INSERT INTO dbo.HistoricoVacunas (
-            id_Nino, id_Cita, FechaAplicacion, DosisAplicada, EdadAlMomento, 
-            VacunaNombre, FabricanteNombre, LoteNumero, PersonalSaludNombre, 
-            NotasAdicionales, Alergias
+            id_Nino,
+            id_Tutor,
+            id_Cita,
+            FechaUltimaAplicacion,
+            FirmaDigital,
+            NotasAdicionales,
+            Alergias,
+            FechaCreacion
         )
         VALUES (
-            @id_Nino, @id_Cita, @FechaAplicacion, @DosisAplicada, @EdadAlMomento,
-            @VacunaNombre, @FabricanteNombre, @LoteNumero, @NombreCompletoPersonalAplicado,
-            @NotasAdicionales, @Alergias
+            @id_Nino,
+            @id_Tutor,
+            @id_Cita,
+            @FechaAplicacion,
+            NULL, -- No digital signature captured by this SP
+            @NotasAdicionales,
+            @Alergias,
+            GETDATE()
         );
+
+        SET @New_id_Historico = SCOPE_IDENTITY();
+
+        -- Now, insert into the bridge table HistoricoCita
+        INSERT INTO dbo.HistoricoCita (
+            id_Historico,
+            id_Cita,
+            Vacuna,
+            NombreCompletoPersonal,
+            CentroMedico,
+            Fecha,
+            Hora,
+            Notas
+        )
+        SELECT
+            @New_id_Historico,
+            @id_Cita,
+            @VacunaNombre,
+            @NombreCompletoPersonalAplicado,
+            cm.NombreCentro,
+            c.Fecha,
+            c.Hora,
+            @NotasAdicionales
+        FROM dbo.CitaVacunacion c
+        JOIN dbo.CentroVacunacion cm ON c.id_CentroVacunacion = cm.id_CentroVacunacion
+        WHERE c.id_Cita = @id_Cita;
 
         COMMIT TRANSACTION;
         SET @OutputMessage = 'Vaccination recorded successfully for Appointment ID: ' + CAST(@id_Cita AS NVARCHAR(10)) + '.';

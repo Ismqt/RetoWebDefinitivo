@@ -4,7 +4,7 @@ const { poolConnect, sql } = require('../config/db');
 const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 
 // GET /stats - Get dashboard statistics
-router.get('/stats', [verifyToken, checkRole(['Administrador', 'Medico', 'Enfermera', 'Digitador'])], async (req, res) => {
+router.get('/stats', [verifyToken, checkRole([1, 2, 3, 4])], async (req, res) => {
     try {
         const pool = await poolConnect;
         const result = await pool.request().execute('usp_GetDashboardStats');

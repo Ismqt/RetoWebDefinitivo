@@ -25,7 +25,7 @@ export default function Header() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
+    <header className="px-10 sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6 md:gap-10">
           <Link href="/" className="flex items-center space-x-2">
@@ -61,23 +61,26 @@ export default function Header() {
                     >
                       Dashboard
                     </Link>
-                    <Link
-                      href="/appointments"
-                      className={`text-sm font-medium transition-colors hover:text-primary ${
-                        pathname === "/appointments" ? "text-primary" : "text-muted-foreground"
-                      }`}
-                    >
-                      Citas
-                    </Link>
+                    
                     {user.role === "Tutor" && (
-                      <Link
-                        href="/children"
-                        className={`text-sm font-medium transition-colors hover:text-primary ${
-                          pathname === "/children" ? "text-primary" : "text-muted-foreground"
-                        }`}
-                      >
-                        Niños
-                      </Link>
+                      <>
+                        <Link
+                          href="/children"
+                          className={`text-sm font-medium transition-colors hover:text-primary ${
+                            pathname === "/children" ? "text-primary" : "text-muted-foreground"
+                          }`}
+                        >
+                          Niños
+                        </Link>
+                        <Link
+                          href="/history"
+                          className={`text-sm font-medium transition-colors hover:text-primary ${
+                            pathname === "/history" ? "text-primary" : "text-muted-foreground"
+                          }`}
+                        >
+                          Historial
+                        </Link>
+                      </>
                     )}
                   </>
                 ) : (

@@ -6,13 +6,13 @@ const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // POST /api/users - Create a new user (Rebuilt for robustness)
-router.post('/', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.post('/', async (req, res) => {
     try {
-        const { id_Rol, Cedula_Usuario, Email, Clave, id_CentroVacunacion } = req.body;
+        const { id_Rol, Cedula_Usuario, Email, Clave, Nombre, Apellido, id_CentroVacunacion } = req.body;
 
         // --- 1. Validate Presence of Core Fields ---
-        if (!id_Rol || !Cedula_Usuario || !Email || !Clave) {
-            return res.status(400).json({ message: 'Role, Cedula, Email, and Password are required fields.' });
+        if (!id_Rol || !Cedula_Usuario || !Email || !Clave || !Nombre || !Apellido) {
+            return res.status(400).json({ message: 'Role, Cedula, Email, Password, Nombre, and Apellido are required fields.' });
         }
 
         // --- 2. Sanitize and Validate Data Types ---
@@ -31,12 +31,14 @@ router.post('/', [verifyToken, checkRole(['Administrador'])], async (req, res) =
         }
 
         // --- 3. Enforce Business Logic ---
-        if (numericRoleId === 6) { // Role: 'Personal del Centro de Vacunación'
+        const rolesRequiringCenter = [2, 6]; // ID 2 for Medico, ID 6 for Personal
+
+        if (rolesRequiringCenter.includes(numericRoleId)) {
             if (finalCenterId === null) {
                 return res.status(400).json({ message: 'A Vaccination Center is mandatory for this role.' });
             }
         } else {
-            // For any other role, ensure id_CentroVacunacion is null
+            // For other roles, ensure id_CentroVacunacion is null
             finalCenterId = null;
         }
 
@@ -50,6 +52,8 @@ router.post('/', [verifyToken, checkRole(['Administrador'])], async (req, res) =
             .input('Cedula_Usuario', sql.NVarChar(15), Cedula_Usuario)
             .input('Email', sql.NVarChar(100), Email)
             .input('Clave', sql.NVarChar(255), hashedPassword)
+            .input('Nombre', sql.VarChar(50), Nombre)
+            .input('Apellido', sql.VarChar(50), Apellido)
             .input('id_CentroVacunacion', sql.Int, finalCenterId)
             .execute('usp_CreateUser');
 
@@ -68,7 +72,7 @@ router.post('/', [verifyToken, checkRole(['Administrador'])], async (req, res) =
 });
 
 // GET /api/users - Get all users
-router.get('/', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.get('/', [verifyToken, checkRole([1])], async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().execute('usp_GetAllUsers');
@@ -80,7 +84,7 @@ router.get('/', [verifyToken, checkRole(['Administrador'])], async (req, res) =>
 });
 
 // GET /api/users/:id - Get a single user by ID
-router.get('/:id', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.get('/:id', [verifyToken, checkRole([1])], async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;
@@ -99,10 +103,10 @@ router.get('/:id', [verifyToken, checkRole(['Administrador'])], async (req, res)
 });
 
 // GET /api/roles - Get all roles
-router.get('/roles', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.get('/roles', [verifyToken, checkRole([1])], async (req, res) => {
     try {
         const pool = await poolPromise;
-                const result = await pool.request().execute('usp_GetRoles');
+        const result = await pool.request().execute('usp_GetRoles');
         res.json(result.recordset);
     } catch (err) {
         console.error('SQL error on GET /api/roles:', err);
@@ -111,7 +115,7 @@ router.get('/roles', [verifyToken, checkRole(['Administrador'])], async (req, re
 });
 
 // PUT /api/users/:id - Update a user
-router.put('/:id', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.put('/:id', [verifyToken, checkRole([1])], async (req, res) => {
     try {
         const { id } = req.params;
         const { id_Rol, id_Estado, Cedula_Usuario, Email } = req.body;
@@ -133,7 +137,7 @@ router.put('/:id', [verifyToken, checkRole(['Administrador'])], async (req, res)
 });
 
 // DELETE /api/users/:id - Soft delete a user
-router.delete('/:id', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.delete('/:id', [verifyToken, checkRole([1])], async (req, res) => {
     try {
         const { id } = req.params;
         const pool = await poolPromise;
@@ -149,13 +153,14 @@ router.delete('/:id', [verifyToken, checkRole(['Administrador'])], async (req, r
 });
 
 // POST /api/users/admin-create - A new, robust endpoint for creating users from the admin panel
-router.post('/admin-create', [verifyToken, checkRole(['Administrador'])], async (req, res) => {
+router.post('/admin-create', [verifyToken, checkRole([1])], async (req, res) => {
     try {
-        const { id_Rol, Cedula_Usuario, Email, Clave, id_CentroVacunacion } = req.body;
+        // ✅ FIXED: Extract Nombre and Apellido from req.body
+        const { id_Rol, Cedula_Usuario, Nombre, Apellido, Email, Clave, id_CentroVacunacion } = req.body;
 
-        // --- 1. Validate Presence of Core Fields ---
-        if (!id_Rol || !Cedula_Usuario || !Email || !Clave) {
-            return res.status(400).json({ message: 'Role, Cedula, Email, and Password are required fields.' });
+        // ✅ FIXED: Validate Nombre and Apellido are present
+        if (!id_Rol || !Cedula_Usuario || !Nombre || !Apellido || !Email || !Clave) {
+            return res.status(400).json({ message: 'Role, Cedula, Nombre, Apellido, Email, and Password are required fields.' });
         }
 
         // --- 2. Sanitize and Validate Data Types ---
@@ -172,26 +177,66 @@ router.post('/admin-create', [verifyToken, checkRole(['Administrador'])], async 
             }
         }
 
+        // --- Business Logic for Vaccination Center based on Role ---
+        const rolesRequiringCenter = [2, 6]; // ID 2 for Medico, ID 6 for Personal
+
+        if (rolesRequiringCenter.includes(numericRoleId)) {
+            if (finalCenterId === null) {
+                return res.status(400).json({ message: 'A Vaccination Center is mandatory for this role.' });
+            }
+        } else {
+            // For other roles, ensure id_CentroVacunacion is null
+            finalCenterId = null;
+        }
+        // --- End Business Logic ---
+
         // --- 3. Process and Execute ---
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(Clave, saltRounds);
-
+        
         const pool = await poolPromise;
         const result = await pool.request()
             .input('id_Rol', sql.Int, numericRoleId)
             .input('Cedula_Usuario', sql.NVarChar(15), Cedula_Usuario)
+            .input('Nombre', sql.NVarChar(100), Nombre)           // ✅ NOW PROPERLY DECLARED
+            .input('Apellido', sql.NVarChar(100), Apellido)       // ✅ NOW PROPERLY DECLARED
             .input('Email', sql.NVarChar(100), Email)
             .input('Clave', sql.NVarChar(255), hashedPassword)
             .input('id_CentroVacunacion', sql.Int, finalCenterId)
-            .execute('usp_CreateAdminUser'); // <-- Using the new stored procedure
-
+            .execute('usp_CreateAdminUser'); // <-- Using the updated stored procedure
+        
         const newUser = result.recordset[0];
         res.status(201).json({ message: 'User created successfully via admin endpoint.', userId: newUser.id_Usuario });
 
     } catch (err) {
         console.error('API Error on POST /api/users/admin-create:', err);
-        const dbErrorMessage = err.originalError ? err.originalError.message : 'A database error occurred.';
-        res.status(500).json({ message: 'Failed to create user.', error: dbErrorMessage });
+        let responseMessage = 'Failed to create user.';
+        let statusCode = 500;
+        let field = null; // To indicate which field might be duplicate
+
+        if (err.originalError) {
+            const dbErrorMsg = err.originalError.message || "";
+            // Heuristic check for unique constraint violation messages from SQL Server
+            if (dbErrorMsg.includes('UNIQUE KEY constraint') || dbErrorMsg.includes('duplicate key') || (err.originalError.number && (err.originalError.number === 2601 || err.originalError.number === 2627))) {
+                statusCode = 409; // Conflict
+                if (dbErrorMsg.toLowerCase().includes('email')) {
+                    responseMessage = 'Este correo electrónico ya está registrado.';
+                    field = 'Email';
+                } else if (dbErrorMsg.toLowerCase().includes('cedula_usuario')) { // Assuming the constraint or column name might include 'cedula_usuario'
+                    responseMessage = 'Esta cédula ya está registrada.';
+                    field = 'Cedula_Usuario';
+                } else {
+                    responseMessage = 'Ya existe un registro con uno de los valores únicos (ej. email o cédula).';
+                }
+            } else {
+                // For other DB errors, use the original message if available
+                responseMessage = dbErrorMsg || 'A database error occurred.';
+            }
+        } else if (err.message) {
+            responseMessage = err.message;
+        }
+
+        res.status(statusCode).json({ message: responseMessage, field, errorDetail: err.originalError ? err.originalError.message : err.message });
     }
 });
 

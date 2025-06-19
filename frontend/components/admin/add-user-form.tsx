@@ -36,7 +36,16 @@ export function AddUserForm({ onSuccess }: AddUserFormProps) {
   }, [fetchRoles, fetchCenters]);
 
   const selectedRoleId = watch("id_Rol");
-  const selectedRole = roles?.find(role => String(role.id_Rol) === selectedRoleId);
+  const selectedRoleObject = roles?.find(role => String(role.id_Rol) === selectedRoleId);
+
+  useEffect(() => {
+    if (selectedRoleId) {
+      console.log("DEBUG: Selected Role ID:", selectedRoleId);
+      console.log("DEBUG: Selected Role Object:", selectedRoleObject);
+    }
+  }, [selectedRoleId, selectedRoleObject, roles]);
+
+  // Original line was: const selectedRole = roles?.find(role => String(role.id_Rol) === selectedRoleId);
 
   const onSubmit = async (data: any) => {
     try {
@@ -95,7 +104,7 @@ export function AddUserForm({ onSuccess }: AddUserFormProps) {
         {errors.id_Rol && <p className="text-red-500">{(errors.id_Rol.message as string)}</p>}
       </div>
 
-      {selectedRole?.Rol === 'Personal del Centro de Vacunación' && (
+      {selectedRoleId === '2' && (
         <div>
           <Label htmlFor="id_CentroVacunacion">Vaccination Center</Label>
           <Controller

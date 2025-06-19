@@ -19,14 +19,27 @@ export default function LoginPage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (user) {
+    // If the user is already authenticated when they land on the login page,
+    // redirect them based on their role using the AuthContext's logic.
+    // This avoids being stuck on the login page if already logged in.
+    if (user && !loading) { // Ensure not in initial loading state
+      // The AuthContext's login function already handles role-based redirection.
+      // We can trigger a similar logic here or simply redirect to a default page
+      // if the user is already authenticated.
+      // For simplicity, let's rely on the initial redirection done by AuthProvider
+      // or redirect to a sensible default like '/dashboard'.
+      // If the user is 'Administrador', special UI is shown, so don't redirect immediately.
       if (user.role === "Administrador") {
-        setIsAdmin(true)
+        setIsAdmin(true); // This will show the admin-specific UI on the login page
+      } else if (user.id_Rol === 2) { // 'Médico'
+        router.push('/management/medical/appointments');
+      } else if (user.id_Rol === 6) {
+        router.push('/management/availability');
       } else {
-        router.push("/dashboard")
+        router.push('/dashboard');
       }
     }
-  }, [user, router])
+  }, [user, loading, router]);
 
     const [error, setError] = useState("");
 
@@ -35,7 +48,8 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      console.log(`[LoginPage] Attempting login with Email/Cedula: '${email}', Password: '${password}'`);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -50,6 +64,7 @@ export default function LoginPage() {
         throw new Error(data.message || 'Failed to login');
       }
 
+      console.log('[LoginPage] User data from API to be passed to AuthContext:', JSON.stringify(data.user, null, 2));
       login(data.token, data.user);
 
     } catch (err: any) {

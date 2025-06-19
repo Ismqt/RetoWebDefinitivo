@@ -6,6 +6,7 @@ export interface User {
   name?: string
   email: string
   role: "medico" | "digitador" | "supervisor" | "administrador"
+  id_Rol: number
   centroId?: string
 }
 

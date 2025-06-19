@@ -5,7 +5,7 @@ const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 
 // GET /provinces - Get all provinces
 // Path: /api/locations/provinces
-router.get('/provinces', [verifyToken, checkRole(['Administrador', 'Medico', 'Enfermera', 'Digitador'])], async (req, res) => {
+router.get('/provinces', [verifyToken, checkRole([1, 2, 3, 4])], async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().execute('usp_GetProvinces');
@@ -18,7 +18,7 @@ router.get('/provinces', [verifyToken, checkRole(['Administrador', 'Medico', 'En
 
 // GET /municipalities/:provinceId - Get municipalities by province
 // Path: /api/locations/municipalities/:provinceId
-router.get('/municipalities/:provinceId', [verifyToken, checkRole(['Administrador', 'Medico', 'Enfermera', 'Digitador'])], async (req, res) => {
+router.get('/municipalities/:provinceId', [verifyToken, checkRole([1, 2, 3, 4])], async (req, res) => {
     try {
         const { provinceId } = req.params;
         const pool = await poolPromise;
