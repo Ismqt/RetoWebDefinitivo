@@ -1,7 +1,7 @@
 import type React from "react"
 import { Inter } from "next/font/google"
 import { Toaster } from "@/components/ui/toaster"
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "next-themes"
 import { AuthProvider } from "@/context/auth-context"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
@@ -23,7 +23,12 @@ export default function RootLayout({
   return (
         <html lang="es" suppressHydrationWarning>
             <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <AuthProvider>
             <div className="flex min-h-screen flex-col">
               <Header />

@@ -4,8 +4,8 @@ const sql = require("mssql")
 const configs = {
   // Opción 1: Usuario SQL (RECOMENDADO)
   sqlAuth: {
-    server: "ISMA_LEGION\\\\SQLEXPRESS",
-    database: "Vaccine",
+    server: "MSI\MSSQLSERVERYOVA",
+    database: "VaccineSafe2",
     user: "vaccine_api",
     password: "VaccineAPI2024!",
     port: 1433,
@@ -26,8 +26,8 @@ const configs = {
 
   // Opción 2: Windows Authentication con credenciales específicas
   windowsAuth: {
-    server: "ISMA_LEGION\\\\SQLEXPRESS",
-    database: "Vaccine",
+    server: "MSI\\MSSQLSERVERYOVA",
+    database: "VaccineSafe2",
     domain: "ISMA_LEGION", // Tu dominio/computadora
     userName: "ismae", // Tu usuario de Windows
     password: "", // Déjalo vacío para Windows Auth
@@ -50,23 +50,23 @@ const configs = {
 
   // Opción 3: Connection string con usuario SQL
   sqlAuthString:
-    "Server=ISMA_LEGION\\\\SQLEXPRESS,1433;Database=Vaccine;User Id=vaccine_api;Password=VaccineAPI2024!;Encrypt=false;TrustServerCertificate=true;Connection Timeout=30;",
+    "Server=MSI\\MSSQLSERVERYOVA,1433;Database=VaccineSafe2;User Id=vaccine_api;Password=VaccineAPI2024!;Encrypt=false;TrustServerCertificate=true;Connection Timeout=30;",
 
   // Opción 4: Connection string Windows Auth mejorado
   windowsAuthString:
-    "Server=ISMA_LEGION\\\\SQLEXPRESS,1433;Database=Vaccine;Integrated Security=true;Encrypt=false;TrustServerCertificate=true;Connection Timeout=30;Persist Security Info=false;",
+    "Server=MSI\\MSSQLSERVERYOVA,1433;Database=VaccineSafe2;Integrated Security=true;Encrypt=false;TrustServerCertificate=true;Connection Timeout=30;Persist Security Info=false;",
 }
 
 // Connection string adaptado - usando SQL Authentication que ya funciona
 const connectionString =
-  "Server=ISMA_LEGION\\\\SQLEXPRESS,1433;Database=Vaccine;User Id=vaccine_api;Password=VaccineAPI2024!;Encrypt=false;TrustServerCertificate=true;Connection Timeout=30;"
+  "Server=MSI\\MSSQLSERVERYOVA,1433;Database=VaccineSafe2;User Id=vaccine_api;Password=VaccineAPI2024!;Encrypt=false;TrustServerCertificate=true;Connection Timeout=30;"
 
 // Pool de conexiones usando tu estructura original
 const poolPromise = new sql.ConnectionPool(connectionString)
   .connect()
   .then((pool) => {
     console.log("[DB SUCCESS] ✅ Connected to SQL Server successfully using connection string!")
-    console.log("[DB INFO] 📊 Database: Vaccine | User: vaccine_api")
+    console.log("[DB INFO] 📊 Database: VaccineSafe2 | User: vaccine_api")
     return pool
   })
   .catch((err) => {

@@ -62,11 +62,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(newUser);
     console.log('[AuthContext] User object received in login:', JSON.stringify(newUser, null, 2));
     console.log('[AuthContext] Condition (newUser.id_Rol === 2):', newUser.id_Rol === 2);
-    if (newUser.id_Rol === 2) { // Role ID for 'Médico'
+    if (newUser.id_Rol === 1) { // Role ID for 'Administrador'
+      console.log('[AuthContext] Admin user detected, redirecting to role selection page (/login).');
+      router.push('/login'); // This is the role selection page for admins
+    } else if (newUser.id_Rol === 2) { // Role ID for 'Médico'
       console.log('[AuthContext] Redirecting to /management/medical/appointments');
       router.push('/management/medical/appointments');
-    } else if (newUser.id_Rol === 1 || newUser.id_Rol === 6) {
-      // Admin: redirigir a disponibilidad (gestión)
+    } else if (newUser.id_Rol === 6) { // Role ID for 'Tutor'
+      // Assuming Tutors go to /management/availability or /dashboard. User has this as /management/availability.
       console.log('[AuthContext] User with role', newUser.id_Rol, 'redirecting to /management/availability');
       router.push('/management/availability');
     } else {
@@ -79,7 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
-    router.push('/login');
+    router.push('/auth');
   };
 
 

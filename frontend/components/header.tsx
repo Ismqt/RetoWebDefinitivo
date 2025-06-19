@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { UserCircle, Menu, Bell, LogOut } from "lucide-react"
+import Image from "next/image"
+import { useTheme } from "next-themes"
 
 export default function Header() {
   const pathname = usePathname()
@@ -24,29 +26,30 @@ export default function Header() {
     setIsMounted(true)
   }, [])
 
+  const { theme } = useTheme()
+
+  if (pathname === "/") {
+    return null;
+  }
+
   return (
-    <header className="px-10 sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
+    <header className="px-10 sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-sm">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6 md:gap-10">
-          <Link href="/" className="flex items-center space-x-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-6 w-6 text-primary"
-            >
-              <path d="m19 9-7-7-7 7"></path>
-              <path d="M5 15v4h14v-4"></path>
-              <path d="M9 21v-7.5"></path>
-              <path d="M15 21v-7.5"></path>
-            </svg>
-            <span className="hidden font-bold sm:inline-block">Sistema de Vacunación</span>
+          <Link href="/" className="flex items-center space-x-3">
+            {isMounted && theme && (
+              <Image
+                src={theme === "light" ? "/images/logo-vacunas-rd.jpeg" : "/images/logo-vacunas-rd-dark.jpeg"}
+                alt="VACUNAS RD - Logo oficial"
+                width={40} 
+                height={40}
+                className="rounded-lg"
+              />
+            )}
+            <div>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white">VACUNAS RD</h1>
+              <p className="text-xs text-gray-600 dark:text-gray-400">Ministerio de Salud Pública</p>
+            </div>
           </Link>
           <nav className="hidden gap-6 md:flex">
             {isMounted && (
@@ -55,9 +58,7 @@ export default function Header() {
                   <>
                     <Link
                       href="/dashboard"
-                      className={`text-sm font-medium transition-colors hover:text-primary ${
-                        pathname === "/dashboard" ? "text-primary" : "text-muted-foreground"
-                      }`}
+                      className={`text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 ${pathname === "/dashboard" ? "text-green-600 dark:text-green-400" : ""}`}
                     >
                       Dashboard
                     </Link>
@@ -66,17 +67,13 @@ export default function Header() {
                       <>
                         <Link
                           href="/children"
-                          className={`text-sm font-medium transition-colors hover:text-primary ${
-                            pathname === "/children" ? "text-primary" : "text-muted-foreground"
-                          }`}
+                          className={`text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 ${pathname === "/children" ? "text-green-600 dark:text-green-400" : ""}`}
                         >
                           Niños
                         </Link>
                         <Link
                           href="/history"
-                          className={`text-sm font-medium transition-colors hover:text-primary ${
-                            pathname === "/history" ? "text-primary" : "text-muted-foreground"
-                          }`}
+                          className={`text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 ${pathname === "/history" ? "text-green-600 dark:text-green-400" : ""}`}
                         >
                           Historial
                         </Link>
@@ -87,17 +84,13 @@ export default function Header() {
                   <>
                     <Link
                       href="/about"
-                      className={`text-sm font-medium transition-colors hover:text-primary ${
-                        pathname === "/about" ? "text-primary" : "text-muted-foreground"
-                      }`}
+                      className={`text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 ${pathname === "/about" ? "text-green-600 dark:text-green-400" : ""}`}
                     >
                       Acerca de
                     </Link>
                     <Link
                       href="/contact"
-                      className={`text-sm font-medium transition-colors hover:text-primary ${
-                        pathname === "/contact" ? "text-primary" : "text-muted-foreground"
-                      }`}
+                      className={`text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 ${pathname === "/contact" ? "text-green-600 dark:text-green-400" : ""}`}
                     >
                       Contacto
                     </Link>
@@ -161,13 +154,12 @@ export default function Header() {
                   </DropdownMenu>
                 </>
               ) : (
-                <div className="flex items-center gap-2">
-                  <Button asChild variant="ghost">
-                    <Link href="/login">Iniciar Sesión</Link>
-                  </Button>
-                  <Button asChild>
-                    <Link href="/register">Registrarse</Link>
-                  </Button>
+                <div className="flex items-center">
+                  <Link href="/auth">
+                    <Button className="bg-green-600 hover:bg-green-700 text-white">
+                      Iniciar sesión / Registrarse
+                    </Button>
+                  </Link>
                 </div>
               )}
             </>
