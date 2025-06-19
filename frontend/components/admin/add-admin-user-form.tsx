@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import useApi from "@/hooks/use-api"
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2 } from "lucide-react"
+import { Loader2, PlusCircle, XCircle } from "lucide-react"
 
 const formSchema = z
   .object({
@@ -21,18 +21,32 @@ const formSchema = z
     Clave: z.string().min(6, "La clave debe tener al menos 6 caracteres"),
     id_Rol: z.string().min(1, "El rol es requerido"),
     id_CentroVacunacion: z.string().optional(),
+    additionalCenters: z.array(z.object({ id: z.string().min(1, "Debe seleccionar un centro") })).optional(),
   })
   .refine(
     (data) => {
-      // ✅ Fixed: Check for both role '2' (Médico) and '6' (Personal)
       if (data.id_Rol === "2" || data.id_Rol === "6") {
         return !!data.id_CentroVacunacion && data.id_CentroVacunacion.length > 0
       }
       return true
     },
     {
-      message: "Centro de vacunación es requerido para este rol",
+      message: "Centro de vacunación principal es requerido para este rol",
       path: ["id_CentroVacunacion"],
+    },
+  )
+  .refine(
+    (data) => {
+      const allCenters = [
+        data.id_CentroVacunacion,
+        ...(data.additionalCenters?.map((c) => c.id) || []),
+      ].filter(Boolean)
+      const uniqueCenters = new Set(allCenters)
+      return allCenters.length === uniqueCenters.size
+    },
+    {
+      message: "No puede seleccionar el mismo centro varias veces.",
+      path: ["additionalCenters"],
     },
   )
 
@@ -91,7 +105,13 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
       Clave: "",
       id_Rol: "",
       id_CentroVacunacion: "",
+      additionalCenters: [],
     },
+  })
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "additionalCenters",
   })
 
   const selectedRole = form.watch("id_Rol")
@@ -99,9 +119,10 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const payload = {
       ...values,
-      // ✅ Fixed: Check for both roles that require vaccination center
       id_CentroVacunacion: selectedRole === "2" || selectedRole === "6" ? values.id_CentroVacunacion : null,
+      additionalCenters: selectedRole === "2" ? values.additionalCenters?.map((c) => c.id) : [],
     }
+
     try {
       await createUser("/api/users/admin-create", {
         method: "POST",
@@ -122,7 +143,6 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
             message: message || "Este valor ya está en uso.",
           })
         } else {
-          // General 409 error not specific to a field, or field is not one we handle this way
           toast({
             variant: "destructive",
             title: "Conflicto al crear usuario",
@@ -130,7 +150,6 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
           })
         }
       } else {
-        // Handle other types of errors (e.g., network errors, 500s not caught by specific 409 handling)
         toast({
           variant: "destructive",
           title: "Error al crear usuario",
@@ -140,10 +159,12 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
     }
   }
 
+  const primaryCenterId = form.watch("id_CentroVacunacion")
+  const additionalCenterIds = form.watch("additionalCenters")?.map((c) => c.id) || []
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        {/* Información Personal - Grid de 2 columnas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -158,7 +179,6 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
               </FormItem>
             )}
           />
-
           <FormField
             control={form.control}
             name="Apellido"
@@ -174,7 +194,6 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
           />
         </div>
 
-        {/* Identificación y Contacto - Grid de 2 columnas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -189,7 +208,6 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
               </FormItem>
             )}
           />
-
           <FormField
             control={form.control}
             name="Email"
@@ -205,7 +223,6 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
           />
         </div>
 
-        {/* Contraseña - Ancho completo */}
         <FormField
           control={form.control}
           name="Clave"
@@ -220,7 +237,6 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
           )}
         />
 
-        {/* Rol y Centro - Grid de 2 columnas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -228,7 +244,14 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Rol</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={(value) => {
+                    field.onChange(value)
+                    form.setValue("id_CentroVacunacion", "")
+                    form.setValue("additionalCenters", [])
+                  }}
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccione un rol" />
@@ -236,9 +259,7 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
                   </FormControl>
                   <SelectContent>
                     {loadingRoles ? (
-                      <SelectItem value="loading" disabled>
-                        Cargando roles...
-                      </SelectItem>
+                      <SelectItem value="loading" disabled>Cargando...</SelectItem>
                     ) : (
                       roles.map((role) => (
                         <SelectItem key={role.id_Rol} value={String(role.id_Rol)}>
@@ -259,7 +280,7 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
               name="id_CentroVacunacion"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Centro de Vacunación</FormLabel>
+                  <FormLabel>Centro Principal</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -268,15 +289,15 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
                     </FormControl>
                     <SelectContent>
                       {loadingCenters ? (
-                        <SelectItem value="loading" disabled>
-                          Cargando centros...
-                        </SelectItem>
+                        <SelectItem value="loading" disabled>Cargando...</SelectItem>
                       ) : (
-                        centers.map((center) => (
-                          <SelectItem key={center.id_CentroVacunacion} value={String(center.id_CentroVacunacion)}>
-                            {center.Nombre}
-                          </SelectItem>
-                        ))
+                        centers
+                          .filter((c) => !additionalCenterIds.includes(String(c.id_CentroVacunacion)))
+                          .map((center) => (
+                            <SelectItem key={center.id_CentroVacunacion} value={String(center.id_CentroVacunacion)}>
+                              {center.Nombre}
+                            </SelectItem>
+                          ))
                       )}
                     </SelectContent>
                   </Select>
@@ -286,6 +307,64 @@ export function AddAdminUserForm({ onSuccess }: { onSuccess: () => void }) {
             />
           )}
         </div>
+
+        {selectedRole === "2" && (
+          <div className="space-y-3">
+            <FormLabel>Centros Adicionales</FormLabel>
+            {fields.map((field, index) => (
+              <div key={field.id} className="flex items-start gap-2">
+                <FormField
+                  control={form.control}
+                  name={`additionalCenters.${index}.id`}
+                  render={({ field: itemField }) => (
+                    <FormItem className="flex-grow">
+                      <Select onValueChange={itemField.onChange} defaultValue={itemField.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccione un centro adicional" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {loadingCenters ? (
+                            <SelectItem value="loading" disabled>Cargando...</SelectItem>
+                          ) : (
+                            centers
+                              .filter(
+                                (c) =>
+                                  String(c.id_CentroVacunacion) !== primaryCenterId &&
+                                  !additionalCenterIds.filter((id) => id !== itemField.value).includes(String(c.id_CentroVacunacion)),
+                              )
+                              .map((center) => (
+                                <SelectItem key={center.id_CentroVacunacion} value={String(center.id_CentroVacunacion)}>
+                                  {center.Nombre}
+                                </SelectItem>
+                              ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="mt-1">
+                  <XCircle className="h-5 w-5 text-red-500" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => append({ id: "" })}
+              disabled={loadingCenters || !primaryCenterId}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Añadir Centro Adicional
+            </Button>
+            <FormMessage>{form.formState.errors.additionalCenters?.message}</FormMessage>
+          </div>
+        )}
 
         <Button type="submit" disabled={isCreating} className="w-full mt-6">
           {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

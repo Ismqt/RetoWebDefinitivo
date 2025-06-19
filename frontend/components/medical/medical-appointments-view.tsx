@@ -13,7 +13,7 @@ import { AttendAppointmentModal } from "./attend-appointment-modal"
 import type { MedicalAppointment } from "@/types/medical"
 
 export function MedicalAppointmentsView() {
-  const { user } = useAuth()
+  const { user, selectedCenter } = useAuth()
   const { toast } = useToast()
   const { request: fetchAppointments, loading } = useApi<MedicalAppointment[]>()
 
@@ -22,25 +22,32 @@ export function MedicalAppointmentsView() {
   const [isAttendModalOpen, setIsAttendModalOpen] = useState(false)
 
   const loadAppointments = useCallback(async () => {
-    if (!user?.id) return
+    if (!user?.id || !selectedCenter?.id_CentroVacunacion) {
+      console.log("User or selected center not available, skipping appointment load.");
+      return;
+    }
 
     try {
-      const data = await fetchAppointments("/api/medical/appointments")
-      console.log("🔍 Raw appointments data:", data)
-      setAppointments(data || [])
+      const apiUrl = `/api/medical/appointments?id_centro=${selectedCenter.id_CentroVacunacion}`;
+      console.log(`Fetching appointments from: ${apiUrl}`);
+      const data = await fetchAppointments(apiUrl);
+      console.log("🔍 Raw appointments data:", data);
+      setAppointments(data || []);
     } catch (error) {
-      console.error("Error loading medical appointments:", error)
+      console.error("Error loading medical appointments:", error);
       toast({
         variant: "destructive",
         title: "Error",
         description: "No se pudieron cargar las citas médicas",
-      })
+      });
     }
-  }, [fetchAppointments, user?.id, toast])
+  }, [fetchAppointments, user?.id, selectedCenter, toast]);
 
   useEffect(() => {
-    loadAppointments()
-  }, [loadAppointments])
+    if (selectedCenter) {
+      loadAppointments();
+    }
+  }, [loadAppointments, selectedCenter]);
 
   const handleAttendAppointment = (appointment: MedicalAppointment) => {
     setSelectedAppointment(appointment)
@@ -284,17 +291,9 @@ export function MedicalAppointmentsView() {
 
   return (
     <div className="space-y-6">
-      {/* Debug info */}
-      <div className="bg-blue-50 border border-blue-200 rounded p-4 text-sm">
-        <strong>Debug Info:</strong>
-        <br />
-        Fecha actual del sistema: {now.toLocaleDateString("es-ES")} {now.toLocaleTimeString("es-ES")}
-        <br />
-        Total appointments: {appointments.length}
-        <br />
-        Today: {todayAppointments.length}
-        <br />
-        Upcoming: {upcomingAppointments.length}
+      <div className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
+        <h2 className="text-xl font-semibold">Bienvenido a {selectedCenter?.Nombre || 'su centro de trabajo'}</h2>
+        <p className="text-muted-foreground">Aquí puede gestionar las citas programadas para hoy y las próximas.</p>
       </div>
 
       <Tabs defaultValue="today" className="w-full">

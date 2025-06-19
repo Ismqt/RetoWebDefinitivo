@@ -1,45 +1,39 @@
 const express = require('express');
 const router = express.Router();
 const { sql, poolPromise } = require('../config/db');
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 
 // GET /api/medical/appointments - Obtener citas médicas para el usuario autenticado (médico o personal del centro)
-router.get('/appointments', verifyToken, async (req, res) => {
-  console.log('=== GET /api/medical/appointments ===');
-  console.log('Authenticated user:', req.user);
-
+router.get('/appointments', [verifyToken, checkRole([2, 6])], async (req, res) => {
   try {
-    const pool = await poolPromise;
-    const { id: userId, id_Rol, id_CentroVacunacion } = req.user || {};
+    const { pool } = req;
+    const { userId, id_Rol } = req.user;
+    const id_CentroVacunacion_Token = req.user.id_CentroVacunacion; // For manager role
     let result;
 
     if (id_Rol === 2) {
-      // Médico: obtener citas confirmadas asignadas a él
-      console.log(`[MEDICAL APPOINTMENTS] Fetching CONFIRMED appointments for doctor id=${userId}`);
+      // Médico: obtener citas por centro desde query param
+      const { id_centro } = req.query;
+      if (!id_centro) {
+        return res.status(400).json({ error: 'El parámetro id_centro es requerido para médicos.' });
+      }
+      console.log(`[MEDICAL APPOINTMENTS] Fetching CONFIRMED appointments for doctor id=${userId} in center id=${id_centro}`);
       result = await pool.request()
         .input('id_PersonalSalud', sql.Int, userId)
+        .input('id_CentroVacunacion', sql.Int, id_centro)
         .execute('dbo.usp_GetMedicalAppointments');
 
     } else if (id_Rol === 6) {
-      // Personal del Centro de Vacunación: obtener todas las citas del centro
-      if (!id_CentroVacunacion) {
-        return res.status(400).json({ error: 'id_CentroVacunacion no encontrado en el token.' });
-      }
-      console.log(`[MEDICAL APPOINTMENTS] Fetching appointments for center id=${id_CentroVacunacion}`);
+      // Gestor: obtener todas las citas confirmadas del centro desde el token
+      console.log(`[MEDICAL APPOINTMENTS] Fetching ALL confirmed appointments for manager in center id=${id_CentroVacunacion_Token}`);
       result = await pool.request()
-        .input('id_CentroVacunacion', sql.Int, id_CentroVacunacion)
-        .execute('dbo.usp_GetAppointmentsByCenter');
-
+        .input('id_CentroVacunacion', sql.Int, id_CentroVacunacion_Token)
+        .execute('dbo.usp_GetConfirmedAppointmentsByCenter');
     } else {
-      // Otros roles (admin, etc.) – obtener todas las citas confirmadas del día
-      console.log('[MEDICAL APPOINTMENTS] Fetching all confirmed appointments (today)');
-      result = await pool.request()
-        .execute('dbo.usp_GetConfirmedAppointmentsToday');
+      return res.status(403).json({ error: 'Acceso no autorizado para este rol.' });
     }
 
-    console.log(`[MEDICAL APPOINTMENTS] Found ${result.recordset.length} appointments`);
     res.json(result.recordset);
-
   } catch (error) {
     console.error('Error fetching medical appointments:', error);
     res.status(500).json({ 

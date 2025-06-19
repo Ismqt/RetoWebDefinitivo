@@ -155,15 +155,12 @@ router.delete('/:id', [verifyToken, checkRole([1])], async (req, res) => {
 // POST /api/users/admin-create - A new, robust endpoint for creating users from the admin panel
 router.post('/admin-create', [verifyToken, checkRole([1])], async (req, res) => {
     try {
-        // ✅ FIXED: Extract Nombre and Apellido from req.body
-        const { id_Rol, Cedula_Usuario, Nombre, Apellido, Email, Clave, id_CentroVacunacion } = req.body;
+        const { id_Rol, Cedula_Usuario, Nombre, Apellido, Email, Clave, id_CentroVacunacion, additionalCenters } = req.body;
 
-        // ✅ FIXED: Validate Nombre and Apellido are present
         if (!id_Rol || !Cedula_Usuario || !Nombre || !Apellido || !Email || !Clave) {
             return res.status(400).json({ message: 'Role, Cedula, Nombre, Apellido, Email, and Password are required fields.' });
         }
 
-        // --- 2. Sanitize and Validate Data Types ---
         const numericRoleId = parseInt(id_Rol, 10);
         if (isNaN(numericRoleId)) {
             return res.status(400).json({ message: 'Role ID must be a valid number.' });
@@ -177,34 +174,49 @@ router.post('/admin-create', [verifyToken, checkRole([1])], async (req, res) => 
             }
         }
 
-        // --- Business Logic for Vaccination Center based on Role ---
-        const rolesRequiringCenter = [2, 6]; // ID 2 for Medico, ID 6 for Personal
-
+        const rolesRequiringCenter = [2, 6];
         if (rolesRequiringCenter.includes(numericRoleId)) {
             if (finalCenterId === null) {
                 return res.status(400).json({ message: 'A Vaccination Center is mandatory for this role.' });
             }
         } else {
-            // For other roles, ensure id_CentroVacunacion is null
             finalCenterId = null;
         }
-        // --- End Business Logic ---
 
-        // --- 3. Process and Execute ---
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(Clave, saltRounds);
-        
+
         const pool = await poolPromise;
-        const result = await pool.request()
+        const request = pool.request();
+
+        // Handle additional centers for Medico role
+        if (numericRoleId === 2 && Array.isArray(additionalCenters) && additionalCenters.length > 0) {
+            const tvp = new sql.Table('MedicoCentrosType');
+            tvp.columns.add('id_Centro', sql.Int);
+            additionalCenters.forEach(id => {
+                const parsedId = parseInt(id, 10);
+                if (!isNaN(parsedId)) {
+                    tvp.rows.add(parsedId);
+                }
+            });
+            request.input('additionalCenters', tvp);
+        } else {
+            // Pass an empty table if no additional centers
+            const tvp = new sql.Table('MedicoCentrosType');
+            tvp.columns.add('id_Centro', sql.Int);
+            request.input('additionalCenters', tvp);
+        }
+
+        const result = await request
             .input('id_Rol', sql.Int, numericRoleId)
             .input('Cedula_Usuario', sql.NVarChar(15), Cedula_Usuario)
-            .input('Nombre', sql.NVarChar(100), Nombre)           // ✅ NOW PROPERLY DECLARED
-            .input('Apellido', sql.NVarChar(100), Apellido)       // ✅ NOW PROPERLY DECLARED
+            .input('Nombre', sql.NVarChar(100), Nombre)
+            .input('Apellido', sql.NVarChar(100), Apellido)
             .input('Email', sql.NVarChar(100), Email)
             .input('Clave', sql.NVarChar(255), hashedPassword)
             .input('id_CentroVacunacion', sql.Int, finalCenterId)
-            .execute('usp_CreateAdminUser'); // <-- Using the updated stored procedure
-        
+            .execute('usp_CreateAdminUser');
+
         const newUser = result.recordset[0];
         res.status(201).json({ message: 'User created successfully via admin endpoint.', userId: newUser.id_Usuario });
 
@@ -212,7 +224,7 @@ router.post('/admin-create', [verifyToken, checkRole([1])], async (req, res) => 
         console.error('API Error on POST /api/users/admin-create:', err);
         let responseMessage = 'Failed to create user.';
         let statusCode = 500;
-        let field = null; // To indicate which field might be duplicate
+        let field = null;
 
         if (err.originalError) {
             const dbErrorMsg = err.originalError.message || "";
@@ -237,6 +249,34 @@ router.post('/admin-create', [verifyToken, checkRole([1])], async (req, res) => 
         }
 
         res.status(statusCode).json({ message: responseMessage, field, errorDetail: err.originalError ? err.originalError.message : err.message });
+    }
+});
+
+// GET /api/users/:id/centers - Get all assigned centers for a medical user
+router.get('/:id/centers', [verifyToken], async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = parseInt(id, 10);
+
+        if (isNaN(userId)) {
+            return res.status(400).json({ message: 'User ID must be a valid number.' });
+        }
+
+        // Optional: Check if the requesting user is the user in the param or an admin
+        if (req.user.id !== userId && req.user.roleId !== 1) {
+             return res.status(403).json({ message: 'Forbidden: You do not have access to this resource.' });
+        }
+
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('id_Usuario', sql.Int, userId)
+            .execute('usp_GetMedicoCentros');
+
+        res.status(200).json(result.recordset);
+
+    } catch (err) {
+        console.error('API Error on GET /api/users/:id/centers:', err);
+        res.status(500).json({ message: 'Failed to retrieve medical centers.' });
     }
 });
 

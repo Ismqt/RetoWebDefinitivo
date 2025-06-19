@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -17,12 +17,26 @@ import { UserCircle, Menu, Bell, LogOut } from "lucide-react"
 
 export default function Header() {
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { user, logout, selectedCenter } = useAuth()
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  const dashboardPath = useMemo(() => {
+    if (user?.role === "Medico") {
+      return "/medical/select-center";
+    }
+    return "/dashboard";
+  }, [user]);
+
+  const isDashboardActive = useMemo(() => {
+    if (user?.role === "Medico") {
+      return pathname === "/management/medical/appointments" || pathname === "/medical/select-center"
+    }
+    return pathname === "/dashboard"
+  }, [pathname, user])
 
   return (
     <header className="px-10 sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
@@ -54,14 +68,14 @@ export default function Header() {
                 {user ? (
                   <>
                     <Link
-                      href="/dashboard"
+                      href={dashboardPath}
                       className={`text-sm font-medium transition-colors hover:text-primary ${
-                        pathname === "/dashboard" ? "text-primary" : "text-muted-foreground"
+                        isDashboardActive ? "text-primary" : "text-muted-foreground"
                       }`}
                     >
                       Dashboard
                     </Link>
-                    
+
                     {user.role === "Tutor" && (
                       <>
                         <Link

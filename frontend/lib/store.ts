@@ -47,6 +47,7 @@ interface Patient {
   pais: string
   direccion: string
   centroAsignado: string
+  esquemaCompleto?: boolean
   tutor1?: {
     nombre: string
     cedula: string
