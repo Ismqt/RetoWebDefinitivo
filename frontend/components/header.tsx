@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -19,7 +19,7 @@ import { useTheme } from "next-themes"
 
 export default function Header() {
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { user, logout, selectedCenter } = useAuth()
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
@@ -31,6 +31,20 @@ export default function Header() {
   if (pathname === "/") {
     return null;
   }
+
+  const dashboardPath = useMemo(() => {
+    if (user?.role === "Medico") {
+      return "/medical/select-center";
+    }
+    return "/dashboard";
+  }, [user]);
+
+  const isDashboardActive = useMemo(() => {
+    if (user?.role === "Medico") {
+      return pathname === "/management/medical/appointments" || pathname === "/medical/select-center"
+    }
+    return pathname === "/dashboard"
+  }, [pathname, user])
 
   return (
     <header className="px-10 sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-sm">
@@ -58,11 +72,13 @@ export default function Header() {
                   <>
                     <Link
                       href="/dashboard"
-                      className={`text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 ${pathname === "/dashboard" ? "text-green-600 dark:text-green-400" : ""}`}
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        pathname === "/dashboard" ? "text-primary" : "text-muted-foreground"
+                      }`}
                     >
                       Dashboard
                     </Link>
-                    
+
                     {user.role === "Tutor" && (
                       <>
                         <Link

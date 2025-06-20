@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -9,15 +9,23 @@ interface User {
   email: string;
   role: string;
   id_Rol: number;
-  id_CentroVacunacion?: number; // Optional, as not all roles might have it
+  id_CentroVacunacion?: number;
+}
+
+interface MedicalCenter {
+  id_CentroVacunacion: number;
+  Nombre: string;
+  EsPrincipal: boolean;
 }
 
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
   token: string | null;
+  selectedCenter: MedicalCenter | null;
   login: (token: string, user: User) => void;
   logout: () => void;
+  setSelectedCenter: (center: MedicalCenter | null) => void;
   loading: boolean;
 }
 
@@ -26,36 +34,35 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [selectedCenter, setSelectedCenterState] = useState<MedicalCenter | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // This effect runs once on mount to load the token from localStorage.
     try {
       const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
+      const storedCenter = localStorage.getItem('selectedCenter');
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
+        if (storedCenter) {
+          setSelectedCenterState(JSON.parse(storedCenter));
+        }
       } else {
-        // If there's no token, we're not authenticated.
         setToken(null);
         setUser(null);
+        setSelectedCenterState(null);
       }
     } catch (error) {
-      console.error("Failed to parse user from localStorage", error);
-      // Clear any corrupted data.
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setToken(null);
-      setUser(null);
+      console.error("Failed to parse data from localStorage", error);
+      localStorage.clear();
     } finally {
-      // This ensures that we are done loading, regardless of the outcome.
       setLoading(false);
     }
   }, []);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = useCallback((newToken: string, newUser: User) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
@@ -75,24 +82,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else {
       router.push('/dashboard');
     }
-  };
+  }, [router]);
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const logout = useCallback(() => {
+    localStorage.clear();
     setToken(null);
     setUser(null);
+<<<<<<< HEAD
     router.push('/auth');
   };
+=======
+    setSelectedCenterState(null);
+    router.push('/login');
+  }, [router]);
+>>>>>>> 59c15ca7545046203f0de3a1afdef9b8d44ac9fe
 
+  const handleSetSelectedCenter = useCallback((center: MedicalCenter | null) => {
+    if (center) {
+      localStorage.setItem('selectedCenter', JSON.stringify(center));
+    } else {
+      localStorage.removeItem('selectedCenter');
+    }
+    setSelectedCenterState(center);
+  }, []);
 
+  const value = useMemo(() => ({
+    isAuthenticated: !!token,
+    token,
+    user,
+    selectedCenter,
+    login,
+    logout,
+    setSelectedCenter: handleSetSelectedCenter,
+    loading,
+  }), [token, user, selectedCenter, loading, login, logout, handleSetSelectedCenter]);
 
   if (loading) {
     return <div>Loading...</div>; // Or a spinner component
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated: !!token, token, user, login, logout, loading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

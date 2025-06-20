@@ -29,7 +29,7 @@ interface Appointment {
 }
 
 export default function DashboardPage() {
-  const { user, token, loading: authLoading } = useAuth()
+  const { user, selectedCenter, token, loading: authLoading } = useAuth()
   const router = useRouter()
   const [allAppointments, setAllAppointments] = useState<Appointment[] | null>(null)
   const [childrenCount, setChildrenCount] = useState<number | null>(null)
@@ -37,19 +37,25 @@ export default function DashboardPage() {
   const { request: callApi, loading: appointmentsLoading } = useApi()
   const { request: fetchChildren, loading: childrenLoading } = useApi<EnhancedChild[]>()
 
-  const fetchAppointments = useCallback(async () => {
-    if (!token) {
+  const fetchAppointments = useCallback(async (centerId?: number) => {
+    if (!user || !token) {
       return
     }
     try {
-      const data = await callApi("/api/appointments", { method: "GET" })
+      let url = "/api/appointments"
+      if (centerId) {
+        url += `?id_CentroVacunacion=${centerId}`
+      }
+      const data = await callApi(url, {
+        method: "GET",
+      })
       console.log("📅 Appointments data received:", data) // Debug log
       setAllAppointments(data)
     } catch (err) {
       console.error("Failed to fetch appointments:", err)
       setAllAppointments([])
     }
-  }, [token, callApi])
+  }, [user, token, callApi])
 
   // Fetch children for tutors
   const loadChildren = useCallback(async () => {
@@ -73,19 +79,31 @@ export default function DashboardPage() {
   }, [user, fetchChildren])
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authLoading) return // Wait until authentication is resolved
+    if (!user) {
       router.push("/login")
-    } else if (user) {
-      fetchAppointments()
+      return
     }
-  }, [user, authLoading, router, fetchAppointments])
 
-  // Load children when user is available
-  useEffect(() => {
-    if (user) {
+    // Redirect medical users to the correct page
+    if (user && user.id_Rol === 2) {
+      router.push('/medical/select-center');
+      return // Stop further execution in this component
+    }
+
+    // Fetch appointments only if the user is a medical staff and a center is selected
+    if ((user.role === "Medico" || user.role === "Enfermero") && selectedCenter) {
+      fetchAppointments(selectedCenter.id_CentroVacunacion)
+    } else if (user.role === "Enfermero" && user.id_CentroVacunacion) {
+      // Fallback for nurses if selectedCenter is not a concept for them
+      fetchAppointments(user.id_CentroVacunacion)
+    }
+
+    // Fetch children if the user is a tutor
+    if (user.role === "Tutor") {
       loadChildren()
     }
-  }, [user, loadChildren])
+  }, [user, selectedCenter, authLoading, router, fetchAppointments, loadChildren])
 
   const upcomingAppointments = useMemo(() => {
     if (!allAppointments) return []
