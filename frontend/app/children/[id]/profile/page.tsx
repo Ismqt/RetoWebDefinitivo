@@ -114,7 +114,7 @@ export default function ChildProfilePage() {
                                 <AlertDescription className="text-blue-700">
                                     La siguiente vacuna recomendada es <strong>{schedule[0].NombreVacuna} (Dosis {schedule[0].DosisPorAplicar})</strong> para el
                                     <strong> {format(new Date(schedule[0].FechaSugerida), 'dd/MM/yyyy')}</strong>.
-                                    <Button asChild size="sm" className="mt-3 w-full md:w-auto">
+                                    <Button asChild size="sm" className="mt-3 w-full md:w-auto mx-auto block">
                                         <Link href={`/appointments/new?childId=${childId}&vaccineId=${schedule[0].id_Vacuna}`}>
                                             Agendar Cita Ahora <ArrowRight className="ml-2 h-4 w-4" />
                                         </Link>

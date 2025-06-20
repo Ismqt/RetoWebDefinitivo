@@ -59,7 +59,7 @@ export default function AuthPage() {
         // Redirect to the admin role selection page which is at /login
         router.push('/login'); 
       } else if (user.id_Rol === 2) { // 'Médico'
-        router.push('/management/medical/appointments');
+        router.push('/management/medical/select-center');
       } else if (user.id_Rol === 6) { // 'Tutor'
         router.push('/dashboard'); 
       } else {

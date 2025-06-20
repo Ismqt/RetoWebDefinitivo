@@ -18,6 +18,8 @@ BEGIN
             WHEN cv.id_Nino IS NOT NULL THEN 'Menor de edad'
             ELSE 'Tutor'
         END AS TipoPaciente,
+        cv.id_UsuarioRegistraCita AS id_Tutor,
+        cv.id_Vacuna,
         v.Nombre AS NombreVacuna,
         v.DosisLimite,
         centro.NombreCentro,

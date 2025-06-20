@@ -67,17 +67,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+
+    // Force center selection for doctors on every login.
+    if (newUser.id_Rol === 2) {
+      localStorage.removeItem('selectedCenter');
+      setSelectedCenterState(null);
+    }
+
     console.log('[AuthContext] User object received in login:', JSON.stringify(newUser, null, 2));
-    console.log('[AuthContext] Condition (newUser.id_Rol === 2):', newUser.id_Rol === 2);
+
     if (newUser.id_Rol === 1) { // Role ID for 'Administrador'
-      console.log('[AuthContext] Admin user detected, redirecting to role selection page (/login).');
-      router.push('/login'); // This is the role selection page for admins
+      router.push('/login');
     } else if (newUser.id_Rol === 2) { // Role ID for 'Médico'
-      console.log('[AuthContext] Redirecting to /medical/select-center'); // Corrected redirection
-      router.push('/medical/select-center'); // Corrected redirection
+      router.push('/management/medical/select-center');
     } else if (newUser.id_Rol === 6) { // Role ID for 'Tutor'
-      // Assuming Tutors go to /management/availability or /dashboard. User has this as /management/availability.
-      console.log('[AuthContext] User with role', newUser.id_Rol, 'redirecting to /management/availability');
       router.push('/management/availability');
     } else {
       router.push('/dashboard');
@@ -85,11 +88,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [router]);
 
   const logout = useCallback(() => {
-    localStorage.clear();
+    // Clear all session data from state and local storage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('selectedCenter');
     setToken(null);
     setUser(null);
-    setSelectedCenterState(null); // This is the desired version
-    router.push('/login');        // This is the desired version
+    setSelectedCenterState(null);
+    router.push('/login');
   }, [router]);
 
   const handleSetSelectedCenter = useCallback((center: MedicalCenter | null) => {

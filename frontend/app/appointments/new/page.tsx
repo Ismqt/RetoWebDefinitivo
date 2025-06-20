@@ -142,7 +142,7 @@ export default function NewAppointmentPage() {
 
   return (
     <div className="container py-10">
-      <Card className="mx-auto w-full max-w-lg">
+      <Card className="mt-3 mx-auto block">
         <CardHeader>
           <CardTitle>Agendar Nueva Cita</CardTitle>
           <CardDescription>Complete el formulario para agendar una nueva cita de vacunación</CardDescription>
@@ -152,7 +152,7 @@ export default function NewAppointmentPage() {
             {user?.id_Rol === 5 && (
               <div className="space-y-2">
                 <Label>¿Para quién es la cita?</Label>
-                <Select onValueChange={(value) => setAppointmentFor(value as "self" | "child")} defaultValue="self">
+                <Select onValueChange={(value) => setAppointmentFor(value as "self" | "child")} value={appointmentFor}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -243,6 +243,8 @@ export default function NewAppointmentPage() {
                   type="time"
                   value={formData.HoraCita}
                   onChange={(e) => handleChange("HoraCita", e.target.value)}
+                  min="07:00"
+                  max="17:00"
                   required
                 />
               </div>

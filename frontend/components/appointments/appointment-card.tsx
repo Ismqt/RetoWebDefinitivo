@@ -68,13 +68,13 @@ export default function AppointmentCard({ appointment, className, variant = "lis
         </p>
 
         {/* Médico asignado / pendiente */}
-        {appointment.NombrePersonalSalud && (
+        {(appointment.NombreCompletoPersonalAplicado || appointment.NombrePersonalSalud) && (
           <div className="flex items-center text-sm text-green-700 bg-green-50 px-2 py-1 rounded-md mt-2 w-max">
             <Stethoscope className="mr-1 h-4 w-4" />
-            <span className="font-medium">Dr(a). {appointment.NombrePersonalSalud}</span>
+            <span className="font-medium">Dr(a). {appointment.NombreCompletoPersonalAplicado || appointment.NombrePersonalSalud}</span>
           </div>
         )}
-        {appointment.EstadoCita === "Confirmada" && !appointment.NombrePersonalSalud && (
+        {appointment.EstadoCita === "Confirmada" && !(appointment.NombreCompletoPersonalAplicado || appointment.NombrePersonalSalud) && (
           <div className="flex items-center text-sm text-amber-700 bg-amber-50 px-2 py-1 rounded-md mt-2 w-max">
             <AlertCircle className="mr-1 h-4 w-4" />
             <span>Confirmada - Médico por asignar</span>

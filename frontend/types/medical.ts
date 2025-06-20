@@ -1,5 +1,6 @@
 export interface MedicalAppointment {
   id_Cita: number;
+  id_Tutor: number; // The ID of the tutor who registered the appointment
   NombrePaciente: string;
   Fecha: string;
   Hora: string;

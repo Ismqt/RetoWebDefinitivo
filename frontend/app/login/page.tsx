@@ -32,7 +32,7 @@ export default function LoginPage() {
       if (user.role === "Administrador") {
         setIsAdmin(true); // This will show the admin-specific UI on the login page
       } else if (user.id_Rol === 2) { // 'Médico'
-         router.push('/medical/select-center'); // Corrected redirection
+         router.push('/management/medical/select-center');
       } else if (user.id_Rol === 6) {
         router.push('/management/availability');
       } else {

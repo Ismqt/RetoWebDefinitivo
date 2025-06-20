@@ -54,12 +54,14 @@ const attendSchema = z.object({
 
 interface AttendAppointmentModalProps {
   appointment: MedicalAppointment
+  patientId: number // The ID of the tutor
+  centerId?: number // The ID of the selected center
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
 }
 
-export function AttendAppointmentModal({ appointment, isOpen, onClose, onSuccess }: AttendAppointmentModalProps) {
+export function AttendAppointmentModal({ appointment, patientId, centerId, isOpen, onClose, onSuccess }: AttendAppointmentModalProps) {
   const { user } = useAuth()
   const { toast } = useToast()
   const { request: fetchLots, loading: loadingLots } = useApi<VaccineLot[]>()
@@ -97,7 +99,7 @@ export function AttendAppointmentModal({ appointment, isOpen, onClose, onSuccess
         const data = await checkHistory("/api/medical/patient-full-history", {
           method: "POST",
           body: {
-            id_Usuario: appointment.id_UsuarioRegistraCita,
+            id_Usuario: patientId,
             id_Nino: appointment.id_Nino || null,
           },
         });
@@ -124,7 +126,15 @@ export function AttendAppointmentModal({ appointment, isOpen, onClose, onSuccess
 
   const loadVaccineLots = async () => {
     try {
-      const data = await fetchLots(`/api/medical/vaccine-lots/${appointment.id_Vacuna}`)
+      if (!centerId) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se ha seleccionado un centro de vacunación.",
+        });
+        return;
+      }
+      const data = await fetchLots(`/api/medical/vaccine-lots/${appointment.id_Vacuna}?id_centro=${centerId}`)
       setVaccineLots(data || [])
     } catch (error) {
       console.error("Error loading vaccine lots:", error)
@@ -233,14 +243,14 @@ export function AttendAppointmentModal({ appointment, isOpen, onClose, onSuccess
           <TabsContent value="history" className="space-y-4">
             {showHistoryForm ? (
               <PatientHistoryForm
-                patientId={appointment.id_UsuarioRegistraCita}
+                patientId={patientId}
                 childId={appointment.id_Nino}
                 patientName={appointment.NombrePaciente}
                 onSuccess={handleHistoryCreated}
               />
             ) : (
               <PatientHistoryView
-                patientId={appointment.id_UsuarioRegistraCita}
+                patientId={patientId}
                 childId={appointment.id_Nino}
                 showVaccinesOnly={false}
               />
@@ -249,7 +259,7 @@ export function AttendAppointmentModal({ appointment, isOpen, onClose, onSuccess
 
           <TabsContent value="vaccines" className="space-y-4">
             <PatientHistoryView
-              patientId={appointment.id_UsuarioRegistraCita}
+              patientId={patientId}
               childId={appointment.id_Nino}
               showVaccinesOnly={true}
             />

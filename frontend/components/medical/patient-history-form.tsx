@@ -42,9 +42,9 @@ export function PatientHistoryForm({ patientId, childId, patientName, onSuccess 
       const payload = {
         id_Usuario: patientId,
         id_Nino: childId || null,
-        fechaNacimiento: values.fechaNacimiento,
-        alergias: values.alergias || "",
-        notasAdicionales: values.notasAdicionales || "",
+        FechaNacimiento: values.fechaNacimiento,
+        Alergias: values.alergias || "",
+        NotasAdicionales: values.notasAdicionales || "",
       }
 
       await createHistory("/api/medical/create-patient-history", {

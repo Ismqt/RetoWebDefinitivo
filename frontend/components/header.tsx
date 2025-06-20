@@ -28,23 +28,23 @@ export default function Header() {
 
   const { theme } = useTheme()
 
-  if (pathname === "/") {
-    return null;
-  }
-
   const dashboardPath = useMemo(() => {
-    if (user?.role === "Medico") {
+    if (user?.id_Rol === 2) { // Medico
       return "/medical/select-center";
     }
     return "/dashboard";
   }, [user]);
 
   const isDashboardActive = useMemo(() => {
-    if (user?.role === "Medico") {
+    if (user?.id_Rol === 2) { // Medico
       return pathname === "/management/medical/appointments" || pathname === "/medical/select-center"
     }
     return pathname === "/dashboard"
-  }, [pathname, user])
+  }, [pathname, user]);
+
+  if (pathname === "/") {
+    return null;
+  }
 
   return (
     <header className="px-10 sticky top-0 z-50 w-full border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-sm">
@@ -79,20 +79,24 @@ export default function Header() {
                       Dashboard
                     </Link>
 
-                    {user.role === "Tutor" && (
+                    {user.id_Rol === 5 && ( // Tutor
                       <>
-                        <Link
-                          href="/children"
-                          className={`text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 ${pathname === "/children" ? "text-green-600 dark:text-green-400" : ""}`}
+                        <a
+                          href="http://localhost:3003/children"
+                          
+                          
+                          className="text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
                         >
                           Niños
-                        </Link>
-                        <Link
-                          href="/history"
-                          className={`text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 ${pathname === "/history" ? "text-green-600 dark:text-green-400" : ""}`}
+                        </a>
+                        <a
+                          href="http://localhost:3003/history"
+                          
+                          
+                          className="text-sm font-medium transition-colors text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
                         >
-                          Historial
-                        </Link>
+                          Historico
+                        </a>
                       </>
                     )}
                   </>

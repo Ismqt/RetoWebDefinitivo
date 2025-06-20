@@ -73,7 +73,7 @@ BEGIN
     LEFT JOIN dbo.Lote l ON cv.id_LoteAplicado = l.id_LoteVacuna 
     WHERE 
         (@id_Nino IS NOT NULL AND cv.id_Nino = @id_Nino) OR
-        (@id_Nino IS NULL AND cv.id_UsuarioRegistraCita = @id_Usuario)
+        (@id_Nino IS NULL AND cv.id_Nino IS NULL AND cv.id_UsuarioRegistraCita = @id_Usuario)
     ORDER BY hc.Fecha DESC, hc.Hora DESC;
 END
 GO

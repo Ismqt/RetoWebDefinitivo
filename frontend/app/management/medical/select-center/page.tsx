@@ -21,6 +21,12 @@ export default function SelectCenterPage() {
   const [centers, setCenters] = useState<MedicalCenter[]>([])
 
   useEffect(() => {
+    // Clear any stale center selection on page load to force a new choice.
+    // This prevents automatic redirection from a previous session's state.
+    setSelectedCenter(null);
+  }, [setSelectedCenter]);
+
+  useEffect(() => {
     if (authLoading) return;
 
     if (!user) {
@@ -28,7 +34,7 @@ export default function SelectCenterPage() {
       return;
     }
 
-    if (user.role !== "Medico") {
+    if (user.id_Rol !== 2) { // Medico
       router.push("/dashboard");
       return;
     }
@@ -52,8 +58,8 @@ export default function SelectCenterPage() {
     router.push("/management/medical/appointments");
   };
 
-  // Show a loader while auth is loading, centers are loading, or while redirecting after selection
-  if (authLoading || centersLoading || selectedCenter) {
+  // Show a loader while auth is loading or centers are loading
+  if (authLoading || centersLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

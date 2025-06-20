@@ -10,6 +10,10 @@ router.get('/', verifyToken, async (req, res) => {
         // Log the entire req.user object to see its structure and content
         console.log('[API APPOINTMENTS GET /] Full req.user object:', JSON.stringify(req.user, null, 2));
 
+        // Log the exact token payload to be certain of its contents, as requested
+        console.log('[API /appointments] Full req.user object from token:', JSON.stringify(req.user, null, 2));
+
+        // Destructure 'id' from the token payload, which is the correct field based on login response
         const { id: userId, id_Rol, id_CentroVacunacion } = req.user;
         console.log(`[API APPOINTMENTS GET /] Extracted from req.user: userId=${userId}, id_Rol=${id_Rol}, id_CentroVacunacion=${id_CentroVacunacion} (Type of id_Rol: ${typeof id_Rol})`);
 
@@ -36,13 +40,12 @@ router.get('/', verifyToken, async (req, res) => {
                 .input('id_CentroVacunacion', sql.Int, id_CentroVacunacion)
                 .execute('usp_GetAppointmentsByCenter');
         } else {
-            // For other roles, use the original stored procedure
-            console.log(`[API APPOINTMENTS GET /] Calling usp_GetAllAppointments with id_Usuario: ${userId}, id_Rol: ${id_Rol}`);
+            // For regular users, get their specific appointments for the dashboard view
+            console.log(`[API APPOINTMENTS GET /] Calling usp_GetAppointmentsByUser with id_Usuario: ${userId}`);
 
             result = await pool.request()
                 .input('id_Usuario', sql.Int, userId)
-                .input('id_Rol', sql.Int, id_Rol)
-                .execute('usp_GetAllAppointments');
+                .execute('dbo.usp_GetAppointmentsByUser');
         }
 
         res.json(result.recordset);
@@ -53,6 +56,30 @@ router.get('/', verifyToken, async (req, res) => {
         const userRolIdFromErrorCtx = req.user ? req.user.id_Rol : 'N/A';
         console.error(`[API APPOINTMENTS GET /] SQL error. UserID=${userIdFromErrorCtx}, UserRoleID=${userRolIdFromErrorCtx}. Error:`, err);
         res.status(500).send({ message: 'Failed to retrieve appointments.', error: err.message });
+    }
+});
+
+
+router.get('/medicos', [verifyToken, checkRole([6])], async (req, res) => {
+    try {
+        const { id_CentroVacunacion } = req.user;
+        console.log(`[API GET /medicos] Getting doctors for center: ${id_CentroVacunacion}`);
+
+        if (!id_CentroVacunacion) {
+            return res.status(400).json({ message: 'No se encontró el centro de vacunación asignado al usuario.' });
+        }
+
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('id_CentroVacunacion', sql.Int, id_CentroVacunacion)
+            .execute('usp_GetMedicosByCentro');
+
+        console.log(`[API GET /medicos] Found ${result.recordset.length} doctors for center ${id_CentroVacunacion}`);
+        res.json(result.recordset);
+
+    } catch (err) {
+        console.error('SQL error on GET /api/appointments/medicos:', err);
+        res.status(500).json({ message: 'Error al obtener los médicos del centro.', error: err.message });
     }
 });
 
@@ -257,27 +284,47 @@ router.post('/:id/record', [verifyToken, checkRole([1, 6])], async (req, res) =>
     }
 });
 
-// GET /api/appointments/medicos - Get doctors for the current user's vaccination center (Personal del Centro only)
-router.get('/medicos', [verifyToken, checkRole([6])], async (req, res) => {
+// GET /api/appointments - Get appointments based on user role
+router.get('/', [verifyToken], async (req, res) => { // Removed checkRole middleware to handle logic inside
     try {
-        const { id_CentroVacunacion } = req.user;
-        console.log(`[API GET /medicos] Getting doctors for center: ${id_CentroVacunacion}`);
+        const { id, roles, id_CentroVacunacion } = req.user;
 
-        if (!id_CentroVacunacion) {
-            return res.status(400).json({ message: 'No se encontró el centro de vacunación asignado al usuario.' });
+        // Logic for Personal del Centro (role 6)
+        if (roles && roles.includes(6)) {
+            console.log(`[API GET /] Role: Personal del Centro. Getting appointments for center: ${id_CentroVacunacion}`);
+
+            if (!id_CentroVacunacion) {
+                return res.status(400).json({ message: 'No se encontró el centro de vacunación asignado al usuario.' });
+            }
+
+            const pool = await poolPromise;
+            const result = await pool.request()
+                .input('id_CentroVacunacion', sql.Int, id_CentroVacunacion)
+                .execute('usp_GetAppointmentsByCenter');
+            
+            console.log(`[API GET /] Found ${result.recordset.length} appointments for center ${id_CentroVacunacion}`);
+            return res.json(result.recordset);
+        }
+
+        // --- Logic for regular users (Dashboard view) ---
+        console.log(`[API GET /] Role: User/Tutor. Getting appointments for user ID: ${id}`);
+        
+        if (!id) {
+            return res.status(401).json({ message: 'Authentication error: User ID not found in token.' });
         }
 
         const pool = await poolPromise;
-        const result = await pool.request()
-            .input('id_CentroVacunacion', sql.Int, id_CentroVacunacion)
-            .execute('usp_GetMedicosByCentro');
+        const request = pool.request();
+        request.input('id_Usuario', sql.Int, id);
 
-        console.log(`[API GET /medicos] Found ${result.recordset.length} doctors for center ${id_CentroVacunacion}`);
-        res.json(result.recordset);
+        const result = await request.execute('dbo.usp_GetAppointmentsByUser');
+        
+        console.log(`[API GET /] Found ${result.recordset.length} appointments for user ${id}`);
+        res.status(200).json(result.recordset);
 
     } catch (err) {
-        console.error('SQL error on GET /api/appointments/medicos:', err);
-        res.status(500).json({ message: 'Error al obtener los médicos del centro.', error: err.message });
+        console.error('SQL error on GET /api/appointments:', err);
+        res.status(500).json({ message: 'Error al obtener las citas.', error: err.message });
     }
 });
 

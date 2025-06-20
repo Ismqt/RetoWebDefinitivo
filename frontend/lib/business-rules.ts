@@ -1,10 +1,11 @@
 // Business Rules Implementation
 export interface User {
-  id: string
+  id: any
   email: string
-  role: "administrador" | "tutor"
-  hashedPassword: string
-  createdAt: Date
+  role: string // For display purposes
+  id_Rol: number // For logic
+  hashedPassword?: string
+  createdAt?: Date
   lastLogin?: Date
 }
 
@@ -53,27 +54,27 @@ export interface Appointment {
 // Business Rule Functions
 export class BusinessRules {
   // User Management & Security Rules
-  static validateUserRole(user: User, requiredRole: "administrador" | "tutor"): boolean {
-    if (requiredRole === "administrador") {
-      return user.role === "administrador"
-    }
-    return user.role === requiredRole || user.role === "administrador"
+  // Role IDs: 1 = Administrador, 6 = Tutor
+  static validateUserRole(user: User, requiredRole: number): boolean {
+    // Admin can do anything
+    if (user.id_Rol === 1) return true;
+    return user.id_Rol === requiredRole;
   }
 
   static canManageChild(user: User, child: Child): boolean {
-    // Administrador can manage any child
-    if (user.role === "administrador") return true
+    // Administrador (1) can manage any child
+    if (user.id_Rol === 1) return true
 
-    // Tutor can only manage their own children
-    return user.role === "tutor" && child.tutorId === user.id
+    // Tutor (6) can only manage their own children
+    return user.id_Rol === 6 && child.tutorId === user.id
   }
 
   static canViewAppointment(user: User, appointment: Appointment): boolean {
-    // Administrador can view any appointment
-    if (user.role === "administrador") return true
+    // Administrador (1) can view any appointment
+    if (user.id_Rol === 1) return true
 
-    // Tutor can only view appointments for their children
-    return user.role === "tutor" && appointment.tutorId === user.id
+    // Tutor (6) can only view appointments for their children
+    return user.id_Rol === 6 && appointment.tutorId === user.id
   }
 
   // Age Calculation Rule
@@ -196,7 +197,7 @@ export class BusinessRules {
     let filteredData = [...data]
 
     // Apply role-based filtering first
-    if (user.role === "tutor") {
+    if (user.id_Rol === 6) { // Tutor
       // Tutors can only see their own children's data
       filteredData = filteredData.filter((item: any) => item.tutorId === user.id || item.userId === user.id)
     }

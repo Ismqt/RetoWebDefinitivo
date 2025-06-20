@@ -46,15 +46,13 @@ export function formatDateString(dateString: string): string {
   if (!dateString) return ""
 
   try {
-    let date: Date;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      // String sin zona horaria, crear fecha en UTC para evitar desfase
-      const [y, m, d] = dateString.split("-").map(Number);
-      date = new Date(Date.UTC(y, m - 1, d));
-    } else {
-      date = new Date(dateString);
-    }
-    if (isNaN(date.getTime())) return dateString;
+    // Extraer parte de fecha (YYYY-MM-DD) para evitar desfase por timezone
+    const datePart = dateString.split("T")[0]
+    const [year, month, day] = datePart.split("-").map(Number)
+    if ([year, month, day].some((v) => isNaN(v))) return dateString
+    // Crear fecha en zona local sin considerar UTC
+    const date = new Date(year, month - 1, day)
+    if (isNaN(date.getTime())) return dateString
 
     return date.toLocaleDateString("es-ES", {
       year: "numeric",

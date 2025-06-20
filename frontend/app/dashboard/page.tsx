@@ -99,9 +99,10 @@ export default function DashboardPage() {
       fetchAppointments(user.id_CentroVacunacion)
     }
 
-    // Fetch children if the user is a tutor
+    // For tutors (role "Tutor"), fetch their own appointments and their children’s
     if (user.role === "Tutor") {
-      loadChildren()
+      fetchAppointments();
+      loadChildren();
     }
   }, [user, selectedCenter, authLoading, router, fetchAppointments, loadChildren])
 

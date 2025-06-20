@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation" 
 import useApi from "@/hooks/use-api"
 import { useAuth } from "@/context/auth-context"
 import { useToast } from "@/components/ui/use-toast"
@@ -8,12 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, Clock, User, Syringe, MapPin, AlertCircle } from "lucide-react"
+import { Calendar, Clock, User, Syringe, MapPin, AlertCircle, ArrowLeft } from "lucide-react"
 import { AttendAppointmentModal } from "./attend-appointment-modal"
 import type { MedicalAppointment } from "@/types/medical"
 
 export function MedicalAppointmentsView() {
   const { user, selectedCenter } = useAuth()
+  const router = useRouter()
   const { toast } = useToast()
   const { request: fetchAppointments, loading } = useApi<MedicalAppointment[]>()
 
@@ -291,9 +293,15 @@ export function MedicalAppointmentsView() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
-        <h2 className="text-xl font-semibold">Bienvenido a {selectedCenter?.Nombre || 'su centro de trabajo'}</h2>
-        <p className="text-muted-foreground">Aquí puede gestionar las citas programadas para hoy y las próximas.</p>
+      <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
+        <div>
+          <h2 className="text-xl font-semibold">Bienvenido a {selectedCenter?.Nombre || 'su centro de trabajo'}</h2>
+          <p className="text-muted-foreground">Aquí puede gestionar las citas programadas para hoy y las próximas.</p>
+        </div>
+        <Button variant="outline" onClick={() => router.push('/management/medical/select-center')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Volver a Centros
+        </Button>
       </div>
 
       <Tabs defaultValue="today" className="w-full">
@@ -353,6 +361,8 @@ export function MedicalAppointmentsView() {
       {selectedAppointment && (
         <AttendAppointmentModal
           appointment={selectedAppointment}
+          patientId={selectedAppointment.id_Tutor} // Pass tutor's ID as patientId
+          centerId={selectedCenter?.id_CentroVacunacion}
           isOpen={isAttendModalOpen}
           onClose={() => {
             setIsAttendModalOpen(false)
