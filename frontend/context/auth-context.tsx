@@ -73,8 +73,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('[AuthContext] Admin user detected, redirecting to role selection page (/login).');
       router.push('/login'); // This is the role selection page for admins
     } else if (newUser.id_Rol === 2) { // Role ID for 'Médico'
-      console.log('[AuthContext] Redirecting to /management/medical/appointments');
-      router.push('/management/medical/appointments');
+      console.log('[AuthContext] Redirecting to /medical/select-center'); // Corrected redirection
+      router.push('/medical/select-center'); // Corrected redirection
     } else if (newUser.id_Rol === 6) { // Role ID for 'Tutor'
       // Assuming Tutors go to /management/availability or /dashboard. User has this as /management/availability.
       console.log('[AuthContext] User with role', newUser.id_Rol, 'redirecting to /management/availability');
@@ -88,14 +88,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.clear();
     setToken(null);
     setUser(null);
-<<<<<<< HEAD
-    router.push('/auth');
-  };
-=======
-    setSelectedCenterState(null);
-    router.push('/login');
+    setSelectedCenterState(null); // This is the desired version
+    router.push('/login');        // This is the desired version
   }, [router]);
->>>>>>> 59c15ca7545046203f0de3a1afdef9b8d44ac9fe
 
   const handleSetSelectedCenter = useCallback((center: MedicalCenter | null) => {
     if (center) {
