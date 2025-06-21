@@ -2,6 +2,14 @@
 
 Este proyecto es un sistema integral para la gestión de campañas de vacunación. Permite administrar citas, inventario de vacunas, centros de vacunación, pacientes y personal médico. La aplicación cuenta con un portal web para pacientes y un panel de administración para el personal autorizado.
 
+## Creadores
+
+*   ISMAEL MOQUETE EDUARDO - 1115719
+*   KATRIEL CASTILLO - 1121299
+*   YOBANNY VELEZ - 1117551
+
+---
+
 ## Stack Tecnológico
 
 El sistema está construido con una arquitectura moderna de tres capas:
